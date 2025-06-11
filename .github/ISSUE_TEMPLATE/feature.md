@@ -1,22 +1,3 @@
-## User Story
-
-**Title:** [A brief title for the user story]
-
-**As a** [type of user],  
-**I want** [an action or feature],  
-**so that** [a benefit or outcome].
-
-### Acceptance Criteria
-- [Criterion 1: Describe a condition that must be met]
-- [Criterion 2: Describe another condition that must be met]
-- [Criterion 3: Describe any additional conditions]
-
-### Additional Information
-- **Priority:** [High/Medium/Low]
-- **Story Points:** [Estimate of effort, if using Agile estimation]
-- **Notes:** [Any additional notes or context]
-
-
 ## Feature
 
 **Title:** [A brief title for the feature]

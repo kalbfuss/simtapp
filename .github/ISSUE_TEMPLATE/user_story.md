@@ -20,4 +20,5 @@ assignees: ''
 ### Additional Information
 - **Priority:** [High/Medium/Low]
 - **Story Points:** [Estimate of effort, if using Agile estimation]
+- **Related stories:** [Link to related stories, e.g. #123]
 - **Notes:** [Any additional notes or context]

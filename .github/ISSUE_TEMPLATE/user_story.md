@@ -1,3 +1,11 @@
+---
+name: User story
+about: Define a typical use case
+title: ''
+labels: ''
+assignees: ''
+
+---
 ## User Story
 
 **Title:** [A brief title for the user story]

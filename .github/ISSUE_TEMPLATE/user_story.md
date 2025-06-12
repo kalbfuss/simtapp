@@ -2,13 +2,11 @@
 name: User story
 about: Define a typical use case
 title: ''
-labels: ''
+labels: 'user story'
 assignees: ''
 
 ---
 ## User Story
-
-**Title:** [A brief title for the user story]
 
 **As a** [type of user],  
 **I want** [an action or feature],  

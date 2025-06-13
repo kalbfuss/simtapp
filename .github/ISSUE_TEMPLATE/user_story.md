@@ -1,6 +1,12 @@
-## User Story
+---
+name: User story
+about: Define a typical use case
+title: ''
+labels: 'user story'
+assignees: ''
 
-**Title:** [A brief title for the user story]
+---
+## User Story
 
 **As a** [type of user],  
 **I want** [an action or feature],  
@@ -14,4 +20,5 @@
 ### Additional Information
 - **Priority:** [High/Medium/Low]
 - **Story Points:** [Estimate of effort, if using Agile estimation]
+- **Related stories:** [Link to related stories, e.g. #123]
 - **Notes:** [Any additional notes or context]

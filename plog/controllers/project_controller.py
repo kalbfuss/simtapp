@@ -1,4 +1,5 @@
 import uuid
+from sqlalchemy import func
 
 from plog.models.project import Project
 
@@ -21,7 +22,7 @@ class ProjectController:
         """
         Add a new project.
 
-        :param title: Title of the project (must be unique)
+        :param title: Title of the project
         :param description: Description of the project (optional)
         :param organization: Organization (optional)
         :param project_manager: Project manager (optional)
@@ -29,8 +30,6 @@ class ProjectController:
         :param initiation_date: Initiation date (optional)
         :param closure_date: Closure date (optional)
         :param parent_id: ID of the parent project (optional)
-        :param project_id: ID of the project (optional)
-        :raises ValueError: If the title is not unique
         :return: The created Project object
         """
         # Generate a unique project_id.
@@ -39,9 +38,6 @@ class ProjectController:
             if not self.session.query(Project).filter_by(project_id=candidate).first():
                 project_id = candidate
                 break
-        # Make sure that the title is unique.
-        if self.session.query(Project).filter_by(title=title).first():
-            raise ValueError("Project title must be unique.")
         project = Project(
             project_id=project_id,
             title=title,
@@ -62,7 +58,7 @@ class ProjectController:
         Update an existing project.
 
         :param project_id: ID of the project to update
-        :param new_title: New title (optional)
+        :param title: New title (optional)
         :param description: New description (optional)
         :param organization: New organization (optional)
         :param project_manager: New project manager (optional)
@@ -70,20 +66,18 @@ class ProjectController:
         :param initiation_date: New initiation date (optional)
         :param closure_date: New closure date (optional)
         :param parent_id: New parent project ID (optional)
-        :raises ValueError: If the project is not found or the new title is not unique
+        :raises ValueError: If the project is not found
         :return: The updated Project object
         """
         project = (
             self.session.query(Project)
-            .filter(Project.project_id == project_id)
+            .filter(Project.project_id == project_id, Project.deleted == 0)
             .order_by(Project.version.desc())
             .first()
         )
         if not project:
             raise ValueError("Project not found.")
-        if title and title != project.title:
-            if self.session.query(Project).filter_by(title=title).first():
-                raise ValueError("Project title must be unique.")
+        if title is not None:
             project.title = title
         if description is not None:
             project.description = description
@@ -138,11 +132,26 @@ class ProjectController:
 
     def get_projects(self):
         """
-        Return all projects.
+        Return all latest, non-deleted projects.
 
-        :return: List of all Project objects
+        :return: List of all latest, non-deleted Project objects
         """
-        return self.session.query(Project).all()
+        subquery = (
+            self.session.query(
+                Project.project_id,
+                func.max(Project.version).label("max_version")
+            )
+            .filter(Project.deleted == 0)
+            .group_by(Project.project_id)
+            .subquery()
+        )
+        latest_projects = (
+            self.session.query(Project)
+            .join(subquery, (Project.project_id == subquery.c.project_id) & (Project.version == subquery.c.max_version))
+            .filter(Project.deleted == 0)
+            .all()
+        )
+        return latest_projects
 
     def get_project(self, project_id):
         """

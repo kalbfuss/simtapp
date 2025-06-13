@@ -48,7 +48,7 @@ class TestProjectController(unittest.TestCase):
         It also verifies that projects can be linked via the parent_id attribute.
         """
         project = self.controller.add_project(
-            title="Add Test project",
+            title="Add test project",
             description="Description",
             organization="Test organization",
             project_manager="Manager",
@@ -58,7 +58,7 @@ class TestProjectController(unittest.TestCase):
         )
         self.assertIsNotNone(project.id)
         self.assertIsNotNone(project.project_id)
-        self.assertEqual(project.title, "Add Test project")
+        self.assertEqual(project.title, "Add test project")
         self.assertEqual(project.description, "Description")
         self.assertEqual(project.organization, "Test organization")
         self.assertEqual(project.project_manager, "Manager")
@@ -178,18 +178,29 @@ class TestProjectController(unittest.TestCase):
         """
         Test the get_projects method of ProjectController.
 
-        This test verifies that all added projects are returned by get_projects.
+        This test verifies that only the latest, non-deleted version of each project is returned.
         """
-        # Add multiple projects
-        p1 = self.controller.add_project(title="Project 1")
-        p2 = self.controller.add_project(title="Project 2")
-        p3 = self.controller.add_project(title="Project 3")
+        # Add two projects
+        project1 = self.controller.add_project(title="Project 1")
+        project2 = self.controller.add_project(title="Project 2")
+        # Update project1 (should increment version)
+        updated1 = self.controller.update_project(
+            project_id=project1.project_id,
+            title="Project 1 updated"
+        )
+        # Soft-delete project2
+        self.controller.delete_project(project2.project_id)
+        # Add a third project
+        project3 = self.controller.add_project(title="Project 3")
+        # get_projects should only return the latest version of project1 and project3 (not deleted)
         projects = self.controller.get_projects()
-        titles = [p.title for p in projects]
-        self.assertIn("Project 1", titles)
-        self.assertIn("Project 2", titles)
-        self.assertIn("Project 3", titles)
-        self.assertGreaterEqual(len(projects), 3)
+        project_titles = {p.title for p in projects}
+        self.assertIn("Project 1 updated", project_titles)
+        self.assertIn("Project 3", project_titles)
+        self.assertNotIn("Project 2", project_titles)
+        # Ensure only one entry per project_id
+        project_ids = [p.project_id for p in projects]
+        self.assertEqual(len(project_ids), len(set(project_ids)))
 
 if __name__ == "__main__":
     unittest.main()

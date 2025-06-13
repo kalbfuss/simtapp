@@ -1,3 +1,4 @@
+import uuid
 from plog.models.milestone import Milestone
 
 class MilestoneController:
@@ -15,58 +16,62 @@ class MilestoneController:
         """
         self.session = session
 
-    def add_milestone(self, title, parent_id=None, description="", initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
+    def add_milestone(self, title, project_id, parent_id=None, description="", initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
         """
         Add a new milestone.
 
-        :param title: Title of the milestone (must be unique)
+        :param title: Title of the milestone
+        :param project_id: ID of the related project (required)
         :param parent_id: ID of the parent milestone (optional)
         :param description: Description of the milestone (optional)
         :param initial_baseline_date: Initial baseline date (optional)
         :param latest_baseline_date: Latest baseline date (optional)
         :param acceptance_criteria: List of acceptance criteria (optional)
-        :raises ValueError: If the title is not unique
         :return: The created Milestone object
         """
-        if self.session.query(Milestone).filter_by(title=title).first():
-            raise ValueError("Milestone title must be unique.")
+        # Generate a unique milestone_id
+        while True:
+            candidate = uuid.uuid4().int >> 96
+            if not self.session.query(Milestone).filter_by(milestone_id=candidate).first():
+                milestone_id = candidate
+                break
         milestone = Milestone(
+            milestone_id=milestone_id,
             title=title,
+            project_id=project_id,
             parent_id=parent_id,
             description=description,
             initial_baseline_date=initial_baseline_date,
             latest_baseline_date=latest_baseline_date,
-            acceptance_criteria=acceptance_criteria or []
+            acceptance_criteria=acceptance_criteria
         )
         self.session.add(milestone)
         self.session.commit()
         return milestone
 
-    def update_milestone(self, milestone_id, new_title=None, description=None, initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
+    def update_milestone(self, milestone_id, title=None, description=None, initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
         """
         Update an existing milestone.
 
         :param milestone_id: ID of the milestone to update
-        :param new_title: New title (optional)
+        :param title: New title (optional)
         :param description: New description (optional)
         :param initial_baseline_date: New initial baseline date (optional)
         :param latest_baseline_date: New latest baseline date (optional)
         :param acceptance_criteria: New acceptance criteria (optional)
-        :raises ValueError: If the milestone is not found or the new title is not unique
+        :raises ValueError: If the milestone is not found
         :return: The updated Milestone object
         """
         milestone = (
             self.session.query(Milestone)
-            .filter(Milestone.id == milestone_id)
+            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
             .order_by(Milestone.version.desc())
             .first()
         )
         if not milestone:
             raise ValueError("Milestone not found.")
-        if new_title and new_title != milestone.title:
-            if self.session.query(Milestone).filter_by(title=new_title).first():
-                raise ValueError("Milestone title must be unique.")
-            milestone.title = new_title
+        if title is not None:
+            milestone.title = title
         if description is not None:
             milestone.description = description
         if initial_baseline_date is not None:
@@ -81,7 +86,7 @@ class MilestoneController:
 
     def delete_milestone(self, milestone_id):
         """
-        Mark one or more milestones as deleted.
+        Mark the specified milestone and all its child milestones (linked via parent_id) as deleted.
 
         :param milestone_id: ID of the milestone to delete
         :raises ValueError: If no milestone is found
@@ -89,15 +94,25 @@ class MilestoneController:
         """
         milestones = (
             self.session.query(Milestone)
-            .filter(Milestone.id == milestone_id)
+            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
             .all()
         )
         if not milestones:
             raise ValueError("Milestone not found.")
+        deleted_now = []
         for milestone in milestones:
             milestone.deleted = 1
+            deleted_now.append(milestone)
+        # Recursively mark all child milestones as deleted
+        def mark_children_as_deleted(parent_milestone_id):
+            children = self.session.query(Milestone).filter(Milestone.parent_id == parent_milestone_id, Milestone.deleted == 0).all()
+            for child in children:
+                child.deleted = 1
+                deleted_now.append(child)
+                mark_children_as_deleted(child.milestone_id)
+        mark_children_as_deleted(milestone_id)
         self.session.commit()
-        return milestones
+        return deleted_now
 
     def get_milestones(self):
         """
@@ -109,7 +124,7 @@ class MilestoneController:
 
     def get_milestone(self, milestone_id):
         """
-        Return the latest non-deleted milestone with the given ID.
+        Return the latest non-deleted milestone with the given milestone_id.
 
         :param milestone_id: ID of the milestone
         :raises ValueError: If no milestone is found
@@ -117,7 +132,7 @@ class MilestoneController:
         """
         milestone = (
             self.session.query(Milestone)
-            .filter(Milestone.id == milestone_id, Milestone.deleted == 0)
+            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
             .order_by(Milestone.version.desc())
             .first()
         )

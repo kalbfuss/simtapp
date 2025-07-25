@@ -6,7 +6,6 @@ from datetime import date, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import configure_mappers, sessionmaker
 
-# from plog.models.common import CustomSessionMaker
 from plog.models.project import Project, Base
 from plog.controllers.project_controller import ProjectController
 

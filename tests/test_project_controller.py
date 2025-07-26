@@ -61,7 +61,7 @@ class TestProjectController(unittest.TestCase):
         2. Create a child Project instance linked via parent_id and verify linkage.
         3. Fetch the child project and check the parent_id is correct.
         """
-        # Create a Project instance
+        # Create a project instance.
         project = Project(
             title="Add test project",
             description="Description",
@@ -84,17 +84,13 @@ class TestProjectController(unittest.TestCase):
         self.assertIsNotNone(project.created)
         self.assertIsNotNone(project.last_modified)
         self.assertEqual(project.created, project.last_modified)
-
-        # Test linking via parent_id
-        child_project = Project(
+        # Test linking to parent.
+        child = Project(
             title="Child Project",
-            parent_id=project.project_id
+            parent=project
         )
-        child_project = self.controller.add_project(child_project)
-        self.assertEqual(child_project.parent_id, project.project_id)
-        # Fetch child and check parent_id
-        fetched_child = self.controller.get_project(child_project.project_id)
-        self.assertEqual(fetched_child.parent_id, project.project_id)
+        child = self.controller.add_project(child)
+        self.assertEqual(child.parent, project)
 
     def test_get_project(self):
         """
@@ -109,11 +105,27 @@ class TestProjectController(unittest.TestCase):
         1. Add a project and retrieve it by its ID, verifying all attributes.
         2. Attempt to retrieve a non-existent project and expect a ValueError.
         """
-        project = Project(title="Get Test Project")
+        # Create a project.
+        project = Project(
+            title="Get Test Project",
+            description="Description",
+            organization="Test organization",
+            project_manager="Manager",
+            project_sponsor="Sponsor",
+            initiation_date=date(2025, 6, 12),
+            closure_date=date(2025, 6, 20)
+        )     
         project = self.controller.add_project(project)
+        # Ensure values in the database are as expected.        
         fetched = self.controller.get_project(project.project_id)
         self.assertEqual(fetched.project_id, project.project_id)
         self.assertEqual(fetched.title, "Get Test Project")
+        self.assertEqual(fetched.description, "Description")
+        self.assertEqual(fetched.organization, "Test organization")
+        self.assertEqual(fetched.project_manager, "Manager")
+        self.assertEqual(fetched.initiation_date, date(2025, 6, 12))
+        self.assertEqual(fetched.closure_date, date(2025, 6, 20))
+        # Attempt to get non-existent project.
         with self.assertRaises(ValueError):
             self.controller.get_project(99999)
 
@@ -125,12 +137,12 @@ class TestProjectController(unittest.TestCase):
         - All fields of a project can be updated.
         - Updating a non-existing project raises a ValueError.
         - The last_modified timestamp is updated and created remains unchanged.
-        - The previous version is stored.
+        - The previous version is saved.
 
         Test steps:
-        1. Add a project and update all fields, verifying the changes.
-        2. Check that the previous version is stored.
-        3. Attempt to update a non-existent project and expect a ValueError.
+        1. Add a project, update all fields, and verify the changes and version increment.
+        2. Check that the previous version is saved.
+        3. Attempt to update a non-existent project.
         """
         project = Project(
             title="Old title",
@@ -156,7 +168,7 @@ class TestProjectController(unittest.TestCase):
         project.initiation_date=date(2026, 2, 2)
         project.closure_date=date(2026, 11, 30)
         project.parent = parent
-        self.controller.update_project(project)
+        project = self.controller.update_project(project)
         self.assertEqual(project.title, "New title")
         self.assertEqual(project.description, "New description")
         self.assertEqual(project.organization, "New organization")
@@ -183,10 +195,7 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(old.created, old_created)
         self.assertEqual(old.last_modified, old_last_modified)
         # Ensure updating a non-existing project fails
-        non_existing = Project(
-            project_id=99999,
-            title="Does not exist"
-        )
+        non_existing = Project(project_id=99999)
         with self.assertRaises(ValueError):
             self.controller.update_project(non_existing)
 
@@ -195,20 +204,18 @@ class TestProjectController(unittest.TestCase):
         Test the delete_project method of ProjectController.
 
         This test verifies:
-        - A project and all its descendants are marked as deleted.
+        - A project and all its descendants are deleted.
         - get_project does not return a deleted project.
         - Unrelated projects are not affected.
         - Only the correct projects are returned by delete_project.
-        - Deleted projects are removed from the Projects table and the deleted version is saved in ProjectHistory with deleted=1.
-        - last_modified is updated on delete and ProjectHistory contains correct timestamps.
 
         Test steps:
         1. Add a parent project, two child projects, a grandchild, and an unrelated project.
-        2. Delete the parent project and verify all descendants are deleted and unrelated projects are unaffected.
+        2. Delete the parent project, verify all descendants are deleted, and the unrelated project remains unaffected.
         3. Ensure get_project does not return deleted projects.
-        4. Ensure deleted projects are removed from the Projects table.
-        5. Ensure deleted version is saved in ProjectHistory with deleted=1 and correct timestamps.
+        4. Ensure deleted projects are removed from the database.
         """
+        # Create projects.
         parent = Project(title="Parent project")
         parent = self.controller.add_project(parent)
         child1 = Project(title="Child 1", parent_id=parent.project_id)
@@ -219,26 +226,26 @@ class TestProjectController(unittest.TestCase):
         grandchild = self.controller.add_project(grandchild)
         unrelated = Project(title="Unrelated project")
         unrelated = self.controller.add_project(unrelated)
-        deleted_projects = self.controller.delete_project(parent)
-        deleted_ids = [project.project_id for project in deleted_projects]
-        self.assertIn(parent.project_id, deleted_ids)
-        self.assertIn(child1.project_id, deleted_ids)
-        self.assertIn(child2.project_id, deleted_ids)
-        self.assertIn(grandchild.project_id, deleted_ids)
-        self.assertNotIn(unrelated.project_id, deleted_ids)
-        self.assertEqual(set(deleted_ids), {parent.project_id, child1.project_id, child2.project_id, grandchild.project_id})
+        # Delete parent project and verify deletion of parent and descendants.
+        deleted = self.controller.delete_project(parent)
+        self.assertIn(parent, deleted)
+        self.assertIn(child1, deleted)
+        self.assertIn(child2, deleted)
+        self.assertIn(grandchild, deleted)
+        self.assertNotIn(unrelated, deleted)
+        self.assertEqual(set(deleted), {parent, child1, child2, grandchild})
         # Ensure deleting a non-existing project fails.
-#        with self.assertRaises(ValueError):
-#            self.controller.delete_project(99999)
+        with self.assertRaises(ValueError):
+            self.controller.delete_project(parent)
         # Ensure get_project does not return deleted project.
-        for pid in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
             with self.assertRaises(ValueError):
-                self.controller.get_project(pid)
+                self.controller.get_project(id)
         # Unrelated project should still be retrievable
         self.assertEqual(self.controller.get_project(unrelated.project_id).title, "Unrelated project")
         # Ensure deleted projects are removed from the projects table.
-        for pid in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
-            project = self.session.query(Project).filter(Project.project_id == pid).first()
+        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+            project = self.session.query(Project).filter(Project.project_id == id).first()
             self.assertIsNone(project)
 
     def test_get_projects(self):
@@ -287,18 +294,17 @@ class TestProjectController(unittest.TestCase):
         1. Add a project and update it multiple times.
         2. Retrieve the project history and verify the order and content of all versions.
         """
-
         project = Project(title="History Test Project v1", description="v1")
         project = self.controller.add_project(project)
-        # Update project in history test (should increment version)
+        # Update the project.
         project.title = "History Test Project v2"
         project.description = "v2"
         self.controller.update_project(project)
-        # Update the project again
+        # Update the project again.
         project.title = "History Test Project v3"
         project.description = "v3"
         self.controller.update_project(project)
-        # Get project history
+        # Get project history.
         history = self.controller.get_project_history(project)
         # There should be 3 history entries
         self.assertEqual(len(history), 3)

@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -9,10 +8,6 @@ from sqlalchemy import (
     ForeignKey,
     Date,
     DateTime,
-    UniqueConstraint,
-    Index,
-    event,
-    inspect
 )
 from sqlalchemy.orm import relationship, backref
 

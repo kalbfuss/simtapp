@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from sqlalchemy import func
 
 from plog.models.project import Project
 
@@ -23,9 +22,8 @@ class ProjectController:
         Add a new project to the database.
 
         :param project: Project instance to add
-        :return: The created Project instance (with assigned project_id)
+        :return: The added Project instance (with assigned project_id)
         """
-        
         # Set creation and last_modified timestamps.
         now = datetime.now(timezone.utc)
         project.created = now
@@ -41,7 +39,7 @@ class ProjectController:
 
         :param project: Project instance with updated values
         :raises ValueError: If the project is not found
-        :return: The updated Project object
+        :return: The updated project instance
         """
         db_project = self.session.query(Project).filter(Project.project_id == project.project_id).first()
         # Ensure the project exists in the database.
@@ -58,9 +56,8 @@ class ProjectController:
 
         :param project: Project instance to delete
         :raises ValueError: If project is not found in the datbase.
-        :return: List of Project objects that were removed by this call
-        """
-        
+        :return: List of project instances that were removed by this call
+        """       
         # Helper to recursively collect all child projects.
         def collect_children(project):
             if project.children is None:
@@ -75,12 +72,12 @@ class ProjectController:
         if db_project is None:
             raise ValueError("Project not found.")
         # Collect all objects that will be deleted.
-        deleted_projects = [ project ]    
-        deleted_projects.extend(collect_children(project))
+        deleted = [ project ]    
+        deleted.extend(collect_children(project))
         # Delete the project and its children.
         self.session.delete(project)
         self.session.commit()
-        return deleted_projects
+        return deleted
 
     def get_projects(self):
         """
@@ -96,7 +93,7 @@ class ProjectController:
 
         :param project_id: ID of the project
         :raises ValueError: If no project is found
-        :return: The Project object
+        :return: The project instance
         """
         project = self.session.query(Project).filter(Project.project_id == project_id).first()
         if project is None:
@@ -108,6 +105,6 @@ class ProjectController:
         Return all previous versions of a project in the database.
 
         :param project: Project instance for which the history shall be retrieved
-        :return: List of ProjectVersion objects, starting with the latest version
+        :return: List of historical project instaces
         """
         return [ version for version in project.versions[::-1] ]

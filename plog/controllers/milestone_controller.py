@@ -1,4 +1,7 @@
-import uuid
+import logging
+
+from datetime import datetime, timezone
+
 from plog.models.milestone import Milestone
 
 class MilestoneController:
@@ -16,126 +19,113 @@ class MilestoneController:
         """
         self.session = session
 
-    def add_milestone(self, title, project_id, parent_id=None, description="", initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
+    def add_milestone(self, milestone):
         """
-        Add a new milestone.
+        Add a new milestone to the database.
 
-        :param title: Title of the milestone
-        :param project_id: ID of the related project (required)
-        :param parent_id: ID of the parent milestone (optional)
-        :param description: Description of the milestone (optional)
-        :param initial_baseline_date: Initial baseline date (optional)
-        :param latest_baseline_date: Latest baseline date (optional)
-        :param acceptance_criteria: List of acceptance criteria (optional)
-        :return: The created Milestone object
+        :param milestone: Milestone instance to add
+        :return: The added Milestone instance (with assigned milestone_id)
+        :raises ValueError: If parent milestone exists and project_id does not match
         """
-        # Generate a unique milestone_id
-        while True:
-            candidate = uuid.uuid4().int >> 96
-            if not self.session.query(Milestone).filter_by(milestone_id=candidate).first():
-                milestone_id = candidate
-                break
-        milestone = Milestone(
-            milestone_id=milestone_id,
-            title=title,
-            project_id=project_id,
-            parent_id=parent_id,
-            description=description,
-            initial_baseline_date=initial_baseline_date,
-            latest_baseline_date=latest_baseline_date,
-            acceptance_criteria=acceptance_criteria
-        )
+        # Ensure milestone is linked to same project as parent if exists.
+        if milestone.parent is not None:
+            with self.session.no_autoflush:
+                milestone.project = milestone.parent.project
+        # Ensure milestone is linked to project.
+        if milestone.project is None:        
+            raise ValueError("Milestone must be linked to project.")
+        # Set creation and last_modified timestamps.
+        now = datetime.now(timezone.utc)
+        milestone.created = now
+        milestone.last_modified = now
+        # Add milestone to database and commit.
         self.session.add(milestone)
         self.session.commit()
         return milestone
 
-    def update_milestone(self, milestone_id, title=None, description=None, initial_baseline_date=None, latest_baseline_date=None, acceptance_criteria=None):
+    def update_milestone(self, milestone):
         """
-        Update an existing milestone.
-
-        :param milestone_id: ID of the milestone to update
-        :param title: New title (optional)
-        :param description: New description (optional)
-        :param initial_baseline_date: New initial baseline date (optional)
-        :param latest_baseline_date: New latest baseline date (optional)
-        :param acceptance_criteria: New acceptance criteria (optional)
+        Update an existing milestone in the database.
+        
+        :param project: Milestone instance with updated values
         :raises ValueError: If the milestone is not found
-        :return: The updated Milestone object
+        :return: The updated milestone instance
         """
-        milestone = (
-            self.session.query(Milestone)
-            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
-            .order_by(Milestone.version.desc())
-            .first()
-        )
-        if not milestone:
+        # Ensure the milestone exists in the database.        
+        db_milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone.milestone_id).first()
+        if db_milestone is None:
             raise ValueError("Milestone not found.")
-        if title is not None:
-            milestone.title = title
-        if description is not None:
-            milestone.description = description
-        if initial_baseline_date is not None:
-            milestone.initial_baseline_date = initial_baseline_date
-        if latest_baseline_date is not None:
-            milestone.latest_baseline_date = latest_baseline_date
-        if acceptance_criteria is not None:
-            milestone.acceptance_criteria = acceptance_criteria
-        milestone.version += 1
+        # Ensure milestone is linked to same project as parent if exists.
+        if milestone.parent is not None:
+            with self.session.no_autoflush:
+                milestone.project = milestone.parent.project
+        # Ensure milestone is linked to project.
+        if milestone.project is None:        
+            raise ValueError("Milestone must be linked to project.")
+        # Update last_modified timestamp and commit.
+        milestone.last_modified = datetime.now(timezone.utc)
         self.session.commit()
         return milestone
 
-    def delete_milestone(self, milestone_id):
+    def delete_milestone(self, milestone):
         """
-        Mark the specified milestone and all its child milestones (linked via parent_id) as deleted.
+        Remove a milestone and all its descendants from the database.
 
-        :param milestone_id: ID of the milestone to delete
-        :raises ValueError: If no milestone is found
-        :return: List of deleted Milestone objects
+        :param milestone: Milestone instance to delete
+        :raises ValueError: If milestone is not found in the database
+        :return: List of milestone instance that were removed by this call
         """
-        milestones = (
-            self.session.query(Milestone)
-            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
-            .all()
-        )
-        if not milestones:
+        # Helper to recursively collect all child projects.
+        def collect_children(milestone):
+            if milestone.children is None:
+                return []
+            children = [ milestone for milestone in milestone.children ]
+            for child in milestone.children:
+                children.extend(collect_children(child))
+            return children
+       
+        db_milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone.milestone_id).first()
+        # Ensure the project exists in the database.
+        if db_milestone is None:
             raise ValueError("Milestone not found.")
-        deleted_now = []
-        for milestone in milestones:
-            milestone.deleted = 1
-            deleted_now.append(milestone)
-        # Recursively mark all child milestones as deleted
-        def mark_children_as_deleted(parent_milestone_id):
-            children = self.session.query(Milestone).filter(Milestone.parent_id == parent_milestone_id, Milestone.deleted == 0).all()
-            for child in children:
-                child.deleted = 1
-                deleted_now.append(child)
-                mark_children_as_deleted(child.milestone_id)
-        mark_children_as_deleted(milestone_id)
+        # Collect all objects that will be deleted.
+        deleted = [ milestone ]    
+        deleted.extend(collect_children(milestone))
+        # Delete the milestone and its children.
+        self.session.delete(milestone)
         self.session.commit()
-        return deleted_now
+        return deleted
 
-    def get_milestones(self):
+    def get_milestones(self, project_id=None):
         """
-        Return all milestones.
+        Return all current milestones (not deleted). Optionally filter by project_id.
 
+        :param project_id: If set, only milestones for this project are returned
         :return: List of all Milestone objects
         """
-        return self.session.query(Milestone).all()
+        query = self.session.query(Milestone)
+        if project_id is not None:
+            query = query.filter(Milestone.project_id == project_id)
+        return query.all()
 
     def get_milestone(self, milestone_id):
         """
-        Return the latest non-deleted milestone with the given milestone_id.
+        Return the milestone with the given ID from the database.
 
         :param milestone_id: ID of the milestone
         :raises ValueError: If no milestone is found
-        :return: The Milestone object
+        :return: The milestone instance
         """
-        milestone = (
-            self.session.query(Milestone)
-            .filter(Milestone.milestone_id == milestone_id, Milestone.deleted == 0)
-            .order_by(Milestone.version.desc())
-            .first()
-        )
-        if not milestone:
+        milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone_id).first()
+        if milestone is None:
             raise ValueError("Milestone not found.")
         return milestone
+
+    def get_milestone_history(self, milestone):
+        """
+        Return all previous versions of a milestone in the database.
+
+        :param project: Milestone instance for which the history shall be retrieved
+        :return: List of historical milestone instances
+        """
+        return [ version for version in milestone.versions[::-1] ]

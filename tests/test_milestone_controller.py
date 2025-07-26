@@ -1,13 +1,13 @@
-import unittest
-import tempfile
+import logging
 import os
+import unittest
 
 from datetime import date
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import configure_mappers, sessionmaker
 
 from plog.models.milestone import Milestone, Base
-#from plog.models.project import Project
+from plog.models.project import Project
 from plog.controllers.milestone_controller import MilestoneController
 from plog.controllers.project_controller import ProjectController
 
@@ -23,15 +23,21 @@ class TestMilestoneController(unittest.TestCase):
         Set up a temporary SQLite database file in the local folder and initialize the MilestoneController.
         This method is called before each test method.
         """
+        # Enable debug level logging
+        logging.basicConfig(level=logging.DEBUG)
+        # Create database and session
         self.db_path = os.path.abspath("test_milestones.sqlite")
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
+        configure_mappers()
         self.engine = create_engine(f'sqlite:///{self.db_path}')
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
-        self.controller = MilestoneController(self.session)
+        # Create project controller for test purposes
         self.project_controller = ProjectController(self.session)
+        # Create instance of controller we want to test
+        self.controller = MilestoneController(self.session)
 
     def tearDown(self):
         """
@@ -40,79 +46,106 @@ class TestMilestoneController(unittest.TestCase):
         """
         self.session.close()
         self.engine.dispose()
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+#        if os.path.exists(self.db_path):
+#            os.remove(self.db_path)
 
     def test_add_milestone(self):
         """
         Test the add_milestone method of MilestoneController.
 
-        This test verifies that a milestone can be created and stored in the database
-        with the correct attributes, and that the returned object contains the expected values.
-        It also verifies that multiple milestones can be added to the same project and are linked correctly.
-        """
-        # Create a parent project
-        project = self.project_controller.add_project(title="Parent project")
+        This test verifies:
+        - A milestone can be created and stored in the database with the correct attributes.
+        - The returned object contains the expected values.
+        - Multiple milestones can be added to the same project and are linked correctly.
+        - Child milestones are always associated with the same project as their parent.
 
-        # Add first milestone
-        milestone = self.controller.add_milestone(
+        Test steps:
+        1. Create a parent project.
+        2. Add a milestone to the project and verify all attributes.
+        3. Add a second milestone with the same title to the same project and verify both exist.
+        4. Add a child milestone with the correct project_id and verify linkage.
+        5. Attempt to add a child milestone with a mismatched project_id and expect a ValueError.
+        """
+        # Create a parent project.
+        project = Project(title="Parent project")
+        project = self.project_controller.add_project(project)
+        # Add first milestone to parent project.
+        milestone = Milestone(
             title="First test milestone",
-            project_id=project.project_id,
+            project=project,
             description="First description",
             initial_baseline_date=date(2025, 6, 12),
             latest_baseline_date=date(2025, 6, 20),
             acceptance_criteria="Criteria"
         )
-        self.assertIsNotNone(milestone.id)
+        milestone = self.controller.add_milestone(milestone)
+        self.assertIsNotNone(milestone.milestone_id)
         self.assertEqual(milestone.title, "First test milestone")
         self.assertEqual(milestone.description, "First description")
         self.assertEqual(milestone.initial_baseline_date, date(2025, 6, 12))
         self.assertEqual(milestone.latest_baseline_date, date(2025, 6, 20))
         self.assertEqual(milestone.acceptance_criteria, "Criteria")
         self.assertEqual(milestone.project_id, project.project_id)
-
-        # Add a second milestone to the same project
-        milestone2 = self.controller.add_milestone(
-            title="First test milestone",  # identischer Titel erlaubt
-            project_id=project.project_id,
-            description="Second description"
-        )
-        self.assertIsNotNone(milestone2.id)
+        # Add a second milestone to the same project.
+        milestone2 = Milestone(title="First test milestone", project=project, description="Second description")
+        milestone2 = self.controller.add_milestone(milestone2)
+        self.assertIsNotNone(milestone2.milestone_id)
         self.assertNotEqual(milestone.milestone_id, milestone2.milestone_id)
         self.assertEqual(milestone2.project_id, project.project_id)
         self.assertEqual(milestone2.title, "First test milestone")
         self.assertEqual(milestone2.description, "Second description")
+        # Ensure adding a milestone not associated to any project fails.
+        milestone3 = Milestone(title="Third test miletone")
+        with self.assertRaises(ValueError):
+            self.controller.add_milestone(milestone3)
+        # Add a child milestone with correct project_id.
+        child1 = Milestone(title="Child milestone", project=project, parent=milestone)
+        child1 = self.controller.add_milestone(child1)
+        self.assertEqual(child1.parent_id, milestone.milestone_id)
+        self.assertEqual(child1.project_id, project.project_id)
+        # Ensure linkage of milestone to same project as parent is enforced.
+        project2 = Project(title="Other project")
+        project2 = self.project_controller.add_project(project2)
+        child2 = Milestone(title="Invalid child milestone", project=project2, parent=milestone)
+        child2 = self.controller.add_milestone(child2)
+        self.assertEqual(child2.project_id, milestone.project_id)
 
     def test_get_milestone(self):
         """
         Test the get_milestone method of MilestoneController.
 
-        This test verifies that a milestone can be retrieved from the database
-        by its ID and that the returned object contains the expected values.
-        It also checks that a ValueError is raised if the milestone does not exist.
-        """
-        # Create a parent project
-        project = self.project_controller.add_project(title="Parent project")
+        This test verifies:
+        - A milestone can be retrieved from the database by its ID.
+        - The returned object contains the expected values.
+        - A ValueError is raised if the milestone does not exist.
 
-        # Add a milestone first
-        milestone = self.controller.add_milestone(
-            title="Get test milestone",
-            project_id=project.project_id,
+        Test steps:
+        1. Create a project and add a milestone.
+        2. Retrieve the milestone by its ID and verify all attributes.
+        3. Attempt to retrieve a non-existent milestone and expect a ValueError.
+        """
+        # Create project and add a milestone
+        project = Project(title="Parent project")
+        project = self.project_controller.add_project(project)
+        milestone = Milestone(
+            title="Get Test milestone",
+            project = project,
             description="Description",
             initial_baseline_date=date(2025, 7, 1),
             latest_baseline_date=date(2025, 7, 10),
             acceptance_criteria="Criteria"
         )
-        # Retrieve the milestone by ID
+        milestone = self.controller.add_milestone(milestone)
+        # Ensure values in the database are as epected.
         fetched = self.controller.get_milestone(milestone.milestone_id)
-        self.assertEqual(fetched.id, milestone.id)
-        self.assertEqual(fetched.title, "Get test milestone")
+        self.assertEqual(fetched.milestone_id, milestone.milestone_id)
+        self.assertEqual(fetched.title, "Get Test milestone")
         self.assertEqual(fetched.description, "Description")
         self.assertEqual(fetched.initial_baseline_date, date(2025, 7, 1))
         self.assertEqual(fetched.latest_baseline_date, date(2025, 7, 10))
         self.assertEqual(fetched.acceptance_criteria, "Criteria")
         self.assertEqual(fetched.project_id, project.project_id)
-        # Test for non-existent milestone
+        # Attempt to get non-existent milestone.
         with self.assertRaises(ValueError):
             self.controller.get_milestone(99999)
 
@@ -120,103 +153,205 @@ class TestMilestoneController(unittest.TestCase):
         """
         Test the delete_milestone method of MilestoneController.
 
-        This test verifies that a milestone and its child milestones are marked as deleted,
-        that a ValueError is raised for non-existent milestones, and that only the correct milestones
-        are returned by delete_milestone.
-        """
-        # Create a parent project
-        project = self.project_controller.add_project(title="Delete Test Project")
+        This test verifies:
+        - A milestone and all its descendants are deleted.
+        - get_milestone does not return a deleted milestone.
+        - Unrelated milestones are not affected.
+        - Only the correct milestones are returned by delete_project.
 
-        # Add parent milestone
-        parent = self.controller.add_milestone(
-            title="Parent milestone",
-            project_id=project.project_id,
-            description="Parent milestone"
-        )
-        # Add child milestone
-        child = self.controller.add_milestone(
-            title="Child milestone",
-            project_id=project.project_id,
-            parent_id=parent.milestone_id,
-            description="Child milestone"
-        )
-        # Add another child milestone
-        child2 = self.controller.add_milestone(
-            title="Child milestone 2",
-            project_id=project.project_id,
-            parent_id=parent.milestone_id,
-            description="Child milestone 2"
-        )
-        # Delete parent milestone (should recursively delete children)
-        deleted = self.controller.delete_milestone(parent.milestone_id)
-        deleted_ids = {m.id for m in deleted}
-        self.assertIn(parent.id, deleted_ids)
-        self.assertIn(child.id, deleted_ids)
-        self.assertIn(child2.id, deleted_ids)
-        # All should be marked as deleted
-        for m in [parent, child, child2]:
-            self.assertEqual(m.deleted, 1)
-        # Trying to delete a non-existent milestone should raise ValueError
+        Test steps:
+        1. Add a parent milestone, two child milestones, a grandchild, and an unrelated milestone.
+        2. Delete the parent milestone, verify all descendants are deleted, and the unrelated milestone remains unaffected.
+        3. Ensure get_milestone does not return deleted milestones.
+        4. Ensure deleted milestones are removed from the database.        
+        """
+        # Create milestones.
+        project = Project(title="Delete Test Project")
+        project = self.project_controller.add_project(project)
+        parent = Milestone(title="Parent milestone", project=project)
+        parent = self.controller.add_milestone(parent)
+        child1 = Milestone(title="Child 1", parent=parent)
+        child1 = self.controller.add_milestone(child1)
+        child2 = Milestone(title="Child 2", parent=parent)
+        child2 = self.controller.add_milestone(child2)
+        grandchild = Milestone(title="Grandchild", parent=child1)
+        grandchild = self.controller.add_milestone(grandchild)
+        unrelated = Milestone(title="Unrelated milestone", project=project)
+        unrelated = self.controller.add_milestone(unrelated)
+        # Delete parent milestone and verify deletion of parent and descendants.
+        deleted = self.controller.delete_milestone(parent)
+        self.assertIn(parent, deleted)
+        self.assertIn(child1, deleted)
+        self.assertIn(child2, deleted)
+        self.assertIn(grandchild, deleted)
+        self.assertNotIn(unrelated, deleted)
+        self.assertEqual(set(deleted), {parent, child1, child2, grandchild})
+        # Ensure deleting a non-existing project fails.
         with self.assertRaises(ValueError):
-            self.controller.delete_milestone(999999)
+            self.controller.delete_milestone(parent)
+        # Ensure get_project does not return deleted project.
+        for id in [parent.milestone_id, child1.milestone_id, child2.milestone_id, grandchild.milestone_id]:
+            with self.assertRaises(ValueError):
+                self.controller.get_milestone(id)
+        # Unrelated project should still be retrievable.
+        self.assertEqual(self.controller.get_milestone(unrelated.milestone_id).title, "Unrelated milestone")
+        # Ensure deleted projects are removed from the projects table.
+        for id in [parent.milestone_id, child1.milestone_id, child2.milestone_id, grandchild.milestone_id]:
+            milestone = self.session.query(Milestone).filter(Milestone.milestone_id == id).first()
+            self.assertIsNone(milestone)
 
     def test_update_milestone(self):
         """
         Test the update_milestone method of MilestoneController.
 
-        This test verifies that all fields of a milestone can be updated and that the version is incremented.
-        It also checks that updating a non-existing milestone raises a ValueError and that the title uniqueness is enforced.
-        """
-        # Create a parent project
-        project = self.project_controller.add_project(title="Update Test Project")
+        This test verifies:
+        - All fields of a milestone can be updated.
+        - Updating a non-existing milestone raises a ValueError.
+        - The last_modified timestamp is updated and created remains unchanged.
+        - The previous version is save.d
 
-        # Add a milestone
-        milestone = self.controller.add_milestone(
+        Test steps:
+        1. Create a project and add a milestone.
+        2. Update all fields of the milestone, verify the changes and version increment.
+        3. Check that the previous version is saved.
+        4. Attempt to update a non-existent milestone.
+        5. Attempt to link milestone to different project as parent.
+
+        """
+        # Create parent project and add milestone.
+        project = Project(title="Update Test Project")
+        project = self.project_controller.add_project(project)
+        milestone = Milestone(
             title="Old title",
-            project_id=project.project_id,
+            project=project,
             description="Old description",
             initial_baseline_date=date(2025, 8, 1),
             latest_baseline_date=date(2025, 8, 10),
             acceptance_criteria="Old criteria"
         )
-        # Update the milestone
-        updated = self.controller.update_milestone(
-            milestone_id=milestone.milestone_id,
-            title="New title",
-            description="New description",
-            initial_baseline_date=date(2025, 9, 1),
-            latest_baseline_date=date(2025, 9, 10),
-            acceptance_criteria="New criteria"
-        )
-        self.assertEqual(updated.title, "New title")
-        self.assertEqual(updated.description, "New description")
-        self.assertEqual(updated.initial_baseline_date, date(2025, 9, 1))
-        self.assertEqual(updated.latest_baseline_date, date(2025, 9, 10))
-        self.assertEqual(updated.acceptance_criteria, "New criteria")
-        self.assertEqual(updated.version, 2)
+        milestone = self.controller.add_milestone(milestone)
+        parent = Milestone(title="Parent for update", project=project)
+        parent = self.controller.add_milestone(parent)        
+        old_created = milestone.created
+        old_last_modified = milestone.last_modified
+        # Update the milestone.
+        milestone.title="New title"
+        milestone.description="New description"
+        milestone.initial_baseline_date=date(2025, 9, 1)
+        milestone.latest_baseline_date=date(2025, 9, 10)
+        milestone.acceptance_criteria="New criteria"
+        milestone.parent = parent
+        milestone = self.controller.update_milestone(milestone)
+        self.assertEqual(milestone.title, "New title")
+        self.assertEqual(milestone.description, "New description")
+        self.assertEqual(milestone.initial_baseline_date, date(2025, 9, 1))
+        self.assertEqual(milestone.latest_baseline_date, date(2025, 9, 10))
+        self.assertEqual(milestone.acceptance_criteria, "New criteria")
+        self.assertEqual(milestone.versions.count(), 2)
+        self.assertIsNotNone(milestone.last_modified)
+        self.assertGreaterEqual(milestone.last_modified, old_last_modified)
+        self.assertEqual(milestone.created, old_created)
+        # Ensure the old version is stored in the milestone history.
+        old = milestone.versions[0]
+        self.assertIsNotNone(old)
+        self.assertEqual(old.title, "Old title")
+        self.assertEqual(old.description, "Old description")
+        self.assertEqual(old.initial_baseline_date, date(2025, 8, 1))
+        self.assertEqual(old.latest_baseline_date, date(2025, 8, 10))
+        self.assertEqual(old.acceptance_criteria, "Old criteria")
+        self.assertEqual(old.created, old_created)
+        self.assertEqual(old.last_modified, old_last_modified)
         # Ensure updating a non-existing milestone fails
+        non_existing = Milestone(milestone_id=99999)
         with self.assertRaises(ValueError):
-            self.controller.update_milestone(99999)
-        # Ensure title uniqueness is NOT enforced anymore
-        milestone2 = self.controller.add_milestone(
-            title="New title",
-            project_id=project.project_id
-        )
-        # Es darf kein Fehler mehr auftreten, beide Milestones existieren mit gleichem Titel
-        self.assertNotEqual(milestone.milestone_id, milestone2.milestone_id)
-        self.assertEqual(milestone2.title, "New title")
-        # Ensure title uniqueness is NOT enforced anymore in update
-        milestone3 = self.controller.update_milestone(
-            milestone_id=milestone.milestone_id,
-            title="Another milestone title"
-        )
-        self.assertEqual(milestone3.title, "Another milestone title")
-        # Es darf kein Fehler auftreten, wenn ein anderer Milestone denselben Titel hat
-        milestone4 = self.controller.update_milestone(
-            milestone_id=milestone2.milestone_id,
-            title="Another milestone title"
-        )
-        self.assertEqual(milestone4.title, "Another milestone title")
+            self.controller.update_milestone(non_existing)
+        # Ensure linkage of milestone to same project as parent is enforced.
+        project2 = Project(title="Update Test Project #2")
+        project2 = self.project_controller.add_project(project2)
+        milestone.project = project2
+        milestone = self.controller.update_milestone(milestone)
+        self.assertEqual(milestone.project, project)
+
+    def test_get_milestone_history(self):
+        """
+        Test the get_milestone_history method of MilestoneController.
+
+        This test verifies:
+        - All versions of a milestone, including the deleted version, are returned in descending order by version.
+
+        Test steps:
+        1. Create a project and add a milestone.
+        2. Update the milestone multiple times.
+        3. Delete the milestone.
+        4. Retrieve the milestone history and verify the order and content of all versions.
+        """
+        # Create parent project and add milestone.
+        project = Project(title="History Test Project")
+        project = self.project_controller.add_project(project)
+        # Update the milestone.
+        milestone = Milestone(title="History Test Milestone v1", project=project, description="v1")
+        self.controller.add_milestone(milestone)
+        milestone.title="History Test Milestone v2"
+        milestone.description="v2"
+        self.controller.update_milestone(milestone)
+        # Update the milestone again.
+        milestone.title="History Test Milestone v3"
+        milestone.description="v3"
+        self.controller.update_milestone(milestone)
+        # Get milestone history.
+        history = self.controller.get_milestone_history(milestone)
+        # There should be 3 history entries
+        self.assertEqual(len(history), 3)
+        # Check order: latest version first
+        self.assertEqual(history[0].title, "History Test Milestone v3")
+        self.assertEqual(history[0].description, "v3")
+        self.assertEqual(history[1].title, "History Test Milestone v2")
+        self.assertEqual(history[1].description, "v2")
+        self.assertEqual(history[2].title, "History Test Milestone v1")
+        self.assertEqual(history[2].description, "v1")
+
+    def test_get_milestones(self):
+        """
+        Test the get_milestones method of MilestoneController.
+
+        This test verifies:
+        - All milestones are returned if no filter is set.
+        - Only milestones for the given project_id are returned if filtered.
+
+        Test steps:
+        1. Create two projects and add milestones to both.
+        2. Retrieve all milestones and verify all are present.
+        3. Retrieve milestones filtered by project_id and verify only the correct milestones are returned.
+        """
+        # Create two projects.
+        project1 = Project(title="Project 1")
+        project1 = self.project_controller.add_project(project1)
+        project2 = Project(title="Project 2")
+        project2 = self.project_controller.add_project(project2)
+        # Add milestones to both projects.
+        m1 = Milestone(title="M1", project=project1)
+        m1 = self.controller.add_milestone(m1)
+        m2 = Milestone(title="M2", project=project1)
+        m2 = self.controller.add_milestone(m2)
+        m3 = Milestone(title="M3", project=project2)
+        m3 = self.controller.add_milestone(m3)
+        # Ensure that get_milestones without filter returns all milestones.
+        all_milestones = self.controller.get_milestones()
+        milestone_titles = {m.title for m in all_milestones}
+        self.assertIn("M1", milestone_titles)
+        self.assertIn("M2", milestone_titles)
+        self.assertIn("M3", milestone_titles)
+        # Ensure that get_milestones with project_id filter returns the correct milestones.
+        project1_milestones = self.controller.get_milestones(project_id=project1.project_id)
+        project1_titles = {m.title for m in project1_milestones}
+        self.assertIn("M1", project1_titles)
+        self.assertIn("M2", project1_titles)
+        self.assertNotIn("M3", project1_titles)
+        project2_milestones = self.controller.get_milestones(project_id=project2.project_id)
+        project2_titles = {m.title for m in project2_milestones}
+        self.assertIn("M3", project2_titles)
+        self.assertNotIn("M1", project2_titles)
+        self.assertNotIn("M2", project2_titles)
 
 if __name__ == "__main__":
     unittest.main()

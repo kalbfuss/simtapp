@@ -4,12 +4,35 @@
     // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
+        // Configuration for running of Python scripts
+        {
+            "name": "Python: Aktuelle Datei",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },       
+        // Configuration for debugging of Python scripts
         {
             "name": "Python-Debugger: Aktuelle Datei",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
+            "console": "integratedTerminal"
+        }
+        // Configuration for running of streamlit apps
+        {
+            "name": "Streamlit: Run App",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/.venv/bin/streamlit",  // or your actual streamlit path
+            "args": [
+                "run",
+                "${file}"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
             "console": "integratedTerminal"
         }
     ]

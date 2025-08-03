@@ -1,47 +1,37 @@
+import pandas as pd
 import streamlit as st
-from streamlit_tree_independent_components import tree_independent_components
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
-# Define the tree structure
-treeItems = {
-    "id": "0",
-    "name": "Project Dashboard",
-    "disable": False,
-    "children": [
-        {
-            "id": "1",
-            "name": "Technology Expense Summary",
-            "disable": False,
-            "children": [
-                {
-                    "id": "2",
-                    "name": "Cost Efficiency Analysis",
-                    "disable": False,
-                    "children": [
-                        {"id": "3", "name": "Financial Data Preparation", "disable": False},
-                        {"id": "4", "name": "Database Operations Review", "disable": False}
-                    ]
-                }
-            ]
-        }
-    ]
-}
+df = pd.DataFrame([
+    {"orgHierarchy": "A", "jobTitle": "CEO", "employmentType": "Permanent"},
+    {"orgHierarchy": "A/B", "jobTitle": "VP", "employmentType": "Permanent"},
+    {"orgHierarchy": "A/B/C", "jobTitle": "Manager", "employmentType": "Contract"}
+])
 
-# Pre-selected items
-checkItems = ["0", "1", "2"]
+gb = GridOptionsBuilder.from_dataframe(df)
+gb.configure_default_column(flex=1)
+gb.configure_column("jobTitle")
+gb.configure_column("employmentType")
 
-# Render the tree component
-result = tree_independent_components(
-    treeItems,
-    checkItems=checkItems,
-    disable=False,
-    single_mode=False,
-    show_select_mode=True,
-    x_scroll=True,
-    y_scroll=True,
-    x_scroll_width=40,
-    frameHeight=20,
-    border=True
+# Tree data setup
+gb.configure_grid_options(
+    treeData=True,
+    getDataPath=JsCode("function(data) { return data.orgHierarchy.split('/'); }"),
+    autoGroupColumnDef={
+        "headerName": "Organisation Hierarchy",
+        "minWidth": 300,
+        "cellRendererParams": {"suppressCount": True}
+    },
+    groupDefaultExpanded=-1,
+    animateRows=True
 )
 
-# Display the result
-st.write("Selected node IDs:", result.get("setSelected", []))
+grid_options = gb.build()
+
+AgGrid(
+    df,
+    gridOptions=grid_options,
+    height=500,
+    allow_unsafe_jscode=True,
+    enable_enterprise_modules=True
+)

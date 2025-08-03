@@ -79,6 +79,17 @@ class ProjectController:
         self.session.commit()
         return deleted
 
+    def delete_by_id(self, id):
+        """
+        Remove a project by its ID and all its descendants from the database.
+
+        :param id: ID of project instance to delete
+        :raises ValueError: If project is not found in the datbase.
+        :return: List of project instances that were removed by this call
+        """       
+        project = self.get_project(id)
+        return self.delete_project(project)
+
     def get_projects(self):
         """
         Return all projects in the database.

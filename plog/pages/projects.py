@@ -92,74 +92,48 @@ def add_project():
     Show a form to add a new project.
     """
     project = Project()
-    columns = ['title', 'parent_id', 'organization', 'project_manager', 'project_sponsor',
-               'description', 'initiation_date', 'closure_date']
-    submitted = create_form(project, columns, button_label="Add")
+    columns = {
+        'title': 'Title',
+        'parent_id': 'Parent',
+        'organization': 'Organization',
+        'project_manager': 'Project Manager',
+        'project_sponsor': 'Project Sponsor',
+        'description': 'Description',
+        'initiation_date': 'Initiation Date',
+        'closure_date': 'Closure Date'
+    }
+    options = { 'parent_id': controller.possible_parents()}
+    submitted = create_form(project, columns, options, button_label="Add")
     if submitted:
         controller.add_project(project)
         st.rerun()
 
-@st.dialog("Edit Project")                 
+@st.dialog("Edit Project")
 def edit_project():
     """
-    Show a form to edit the selected project.
+    Show a form to edit an existing project.
     """
     # Get the select row from session state.
     selected_row = st.session_state.get('selected_row', None)
     if selected_row is None:
         st.error("Please select a project to edit.")
         return
-    # Parent project selector
-    all_projects = controller.get_projects()
-    parent_options = [("No parent", None)] + [
-        (f"{p.title} (ID {p.project_id})", p.project_id)
-        for p in all_projects if p.project_id != selected_row['project_id']
-    ]
-    # Find the current parent option index
-    current_parent_id = selected_row.get('parent_id', None)
-    if current_parent_id is None:
-        parent_idx = 0
-    else:
-        parent_idx = next((i for i, (_, pid) in enumerate(parent_options) if pid == current_parent_id), 0)
-    # Build edit form.
-    with st.form("edit_project_form", clear_on_submit=False):
-        st.subheader(f"Edit Project: {selected_row['title']} (ID {selected_row['project_id']})")
-        # Form fields
-        new_title = st.text_input("Title", value=selected_row['title'], max_chars=255)
-        parent_label, new_parent_id = st.selectbox(
-            "Parent project",
-            parent_options,
-            index=parent_idx,
-            format_func=lambda x: x[0]
-        )        
-        new_organization = st.text_input("Organization", value=selected_row['organization'], max_chars=255)
-        new_manager = st.text_input("Manager", value=selected_row['project_manager'], max_chars=255)
-        new_sponsor = st.text_input("Sponsor", value=selected_row['project_sponsor'], max_chars=255)
-        new_description = st.text_area("Description", value=selected_row['description'])
-        new_initiation_date = st.date_input("Start date", value=pd.to_datetime(selected_row['initiation_date']) if selected_row['initiation_date'] else None, format="YYYY-MM-DD")
-        new_closure_date = st.date_input("End date", value=pd.to_datetime(selected_row['closure_date']) if selected_row['closure_date'] else None, format="YYYY-MM-DD")
-        # Form buttons
-        submitted_edit = st.form_submit_button("Update")
-        cancel_edit = st.form_submit_button("Cancel")
-        # Form logic
-        if submitted_edit:
-            project = controller.get_project(int(selected_row['project_id']))
-            if project is None:
-                st.error("Project not found.")
-                return
-            project.title = new_title
-            project.parent_id = new_parent_id
-            project.organization = new_organization
-            project.project_manager = new_manager
-            project.project_sponsor = new_sponsor
-            project.description = new_description
-            project.initiation_date = new_initiation_date
-            project.closure_date = new_closure_date
-            controller.update_project(project)
-            st.success("Project updated.")
-            st.rerun()               
-        elif cancel_edit:
-            st.rerun()
+    project = controller.get_project(int(selected_row['project_id']))
+    columns = {
+        'title': 'Title',
+        'parent_id': 'Parent',
+        'organization': 'Organization',
+        'project_manager': 'Project Manager',
+        'project_sponsor': 'Project Sponsor',
+        'description': 'Description',
+        'initiation_date': 'Initiation Date',
+        'closure_date': 'Closure Date'
+    }
+    options = { 'parent_id': controller.possible_parents(project)}
+    submitted = create_form(project, columns, options)
+    if submitted:
+        controller.add_project(project)
+        st.rerun()
 
 @st.dialog("Confirm Deletion")
 def delete_project():

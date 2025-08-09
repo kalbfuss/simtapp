@@ -323,13 +323,19 @@ class TestProjectController(unittest.TestCase):
         p2 = self.controller.add_project(Project(title="Beta"))
         p3 = self.controller.add_project(Project(title="Gamma"))
 
-        result = self.controller.possible_parents(p1)
+        result = self.controller.possible_parents()
+        # Check keys and values
+        expected_keys = {f"Alpha (ID {p1.project_id})", f"Beta (ID {p2.project_id})", f"Gamma (ID {p3.project_id})"}
+        assert set(result.keys()) == expected_keys
+        assert result[f"Alpha (ID {p1.project_id})"] == p1.project_id
+        assert result[f"Beta (ID {p2.project_id})"] == p2.project_id
+        assert result[f"Gamma (ID {p3.project_id})"] == p3.project_id
 
+        result = self.controller.possible_parents(p1)
         # Check keys and values
         expected_keys = {f"Beta (ID {p2.project_id})", f"Gamma (ID {p3.project_id})"}
         assert set(result.keys()) == expected_keys
-        assert result[f"Beta (ID {p2.project_id})"] == p2
-        assert result[f"Gamma (ID {p3.project_id})"] == p3
+
 
 if __name__ == "__main__":
     unittest.main()

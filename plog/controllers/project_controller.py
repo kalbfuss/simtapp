@@ -122,14 +122,14 @@ class ProjectController:
     
     def possible_parents(self, project=None):
         """
-        Returns a dictionary mapping 'title (ID)' to project instances for all 
-        existing projects except the given project. Useful for parent selection
-        in forms.
+        Returns a dictionary mapping 'title (ID)' to project IDs for all existing
+        projects except the given project. Useful for parent selection in forms.
 
         :param project: Project instance to exclude from possible parents (optional)
-        :return: Dictionary mapping 'title (ID)' to project instances
+        :return: Dictionary mapping 'title (ID)' to project IDs
         """
-        projects = self.get_projects()
+        query = self.session.query(Project)
         if project is not None:
-            projects = [p for p in projects if p.project_id != project.project_id]
-        return {f"{p.title} (ID {p.project_id})": p for p in projects}
+            query = query.filter(Project.project_id != project.project_id)
+        projects = query.all()
+        return {f"{p.title} (ID {p.project_id})": p.project_id for p in projects}

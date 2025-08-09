@@ -119,3 +119,17 @@ class ProjectController:
         :return: List of historical project instaces
         """
         return [ version for version in project.versions[::-1] ]
+    
+    def possible_parents(self, project=None):
+        """
+        Returns a dictionary mapping 'title (ID)' to project instances for all 
+        existing projects except the given project. Useful for parent selection
+        in forms.
+
+        :param project: Project instance to exclude from possible parents (optional)
+        :return: Dictionary mapping 'title (ID)' to project instances
+        """
+        projects = self.get_projects()
+        if project is not None:
+            projects = [p for p in projects if p.project_id != project.project_id]
+        return {f"{p.title} (ID {p.project_id})": p for p in projects}

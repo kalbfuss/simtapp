@@ -6,7 +6,7 @@ All code and documentation must be in English.
 import pandas as pd
 import streamlit as st
 
-from plog.common import init, create_form, parse_date
+from plog.common import init, create_form, create_table
 from plog.models.project import Project
 from plog.controllers.project_controller import ProjectController
 
@@ -21,71 +21,28 @@ session = st.session_state['session']
 controller = ProjectController(session)
 
 def projects_table():
-    """
-    Display projects in a table.
-    """
+    # Get all projects from database.
     projects = controller.get_projects()
     if projects is None:
         st.info("No projects found.")
         return
-    # Build a lookup for parent traversal.
-    id_map = {p.project_id: p for p in projects}
-    def get_hierarchy_path(proj):
-        # Returns the full path from root to the given project as a string
-        path = []
-        current = proj
-        while current is not None:
-            path.append(str(current.project_id))
-            current = id_map.get(current.parent_id)
-        return '/'.join(reversed(path))
-    # Build panda data frame.
-    df = pd.DataFrame([
-        {
-            'project_id': p.project_id,
-            'title': p.title,
-            'organization': p.organization,
-            'project_manager': p.project_manager,
-            'project_sponsor': p.project_sponsor,
-            'initiation_date': p.initiation_date,
-            'closure_date': p.closure_date,
-            'description': p.description,
-            'parent_id': p.parent_id,
-            'path': get_hierarchy_path(p)
-        }
-        for p in projects
-    ])
-    # Build grid options.
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_default_column(flex=1)
-    gb.configure_selection('single')
-    gb.configure_grid_options(
-        treeData=True,
-        getDataPath=JsCode("function(data) { return data.path.split('/'); }"),
-        autoGroupColumnDef={
-            "headerName": "Path",
-            "field": "title",
-            "minWidth": 300,
-            "cellRendererParams": {"suppressCount": True}
-        },
-        groupDefaultExpanded=-1,
-        animateRows=True
-    )
-    grid_options = gb.build()
-    # Show the grid.
-    grid_response = AgGrid(
-        df,
-        gridOptions=grid_options,
-        update_mode='MODEL_CHANGED',
-        fit_columns_on_grid_load=True,
-        use_container_width=True,
-        enable_enterprise_modules=True,
-        allow_unsafe_jscode=True,
-    )
+    # Define columns for display.
+    columns = {
+        'title': 'Title',
+        'project_id': 'ID',
+        'organization': 'Organization',
+        'project_manager': 'Project Manager',
+        'project_sponsor': 'Project Sponsor',
+        'initiation_date': 'Initiation Date',
+        'closure_date': 'Closure Date',
+        'description': 'Description',
+    }
+    response = create_table(projects, columns, parent_column='parent_id')
     # Get the selected row (if any).
-    selected_rows = grid_response.get('selected_rows', None)
+    selected_rows = response.get('selected_rows', None)
     if selected_rows is not None:
         st.session_state['selected_row'] = selected_rows.iloc[0]
-
+    
 @st.dialog("Add Project")
 def add_project():
     """

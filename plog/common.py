@@ -7,7 +7,8 @@ import streamlit as st
 from datetime import date, datetime as dt
 from sqlalchemy import create_engine, Date, String, Text
 from sqlalchemy.orm import class_mapper, configure_mappers, sessionmaker
-
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+    
 from plog.models.common import Base
 from plog.models.milestone import Milestone
 from plog.models.project import Project
@@ -67,6 +68,110 @@ def parse_date(val):
             return dt.strptime(val, "%Y-%m-%d").date()
         except Exception:
             return None
+
+def create_table(objects, columns, parent_column=None):
+    """
+    Display a table of SQLAlchemy model instances using st_aggrid.
+
+    :param instances: List of SQLAlchemy model instances to display.
+    :type instances: list[object]
+    :param columns: Dictionary mapping column names to labels for display.
+    :type columns: dict[str, str]
+    :param parent_column: Optional column name for hierarchical display.
+    :type parent_column: str
+    """
+    
+    def get_hierarchy_path(object, id_map):
+        """
+        Returns the full path from root to the object as a string.
+        
+        The path is a string of IDs separated by slashes, e.g. "1/2/3".
+        
+        :param object: SQLAlchemy model instance for which to get the path.
+        :type object: object
+        :param id_map: Dictionary mapping IDs to objects for parent traversal.
+        :type id_map: dict[int, object]
+        :returns: Path to the object.
+        :rtype: str
+        """
+        path = []
+        current = object
+        while current is not None:
+            path.append(str(current.project_id))
+            current = id_map.get(current.parent_id)
+        return '/'.join(reversed(path))
+
+    # Build a lookup for parent traversal and add 'path' column if needed
+    rows = []
+    if parent_column is not None:
+        id_map = {getattr(obj, 'project_id', None): obj for obj in objects}
+        for obj in objects:
+            row = {col: getattr(obj, col, None) for col in columns.keys()}
+            row['path'] = get_hierarchy_path(obj, id_map)
+            rows.append(row)
+        df = pd.DataFrame(rows)
+    else:
+        df = pd.DataFrame([
+            {col: getattr(obj, col, None) for col in columns.keys()} for obj in objects
+        ])
+
+    # Add preformatted date columns  .
+    mapper = class_mapper(type(objects[0]))
+    for col, label in columns.items():
+        if type(mapper.columns[col].type) == Date:
+            # Insert pre-formatted date column.
+            fmt_col = f"{col}_formatted"
+            df.insert(
+                loc=df.columns.get_loc(col) + 1,
+                column=fmt_col,
+                value=df[col].apply(lambda d: d.strftime("%Y-%m-%d") if d is not None else "")
+            )
+
+    # Build grid options.
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_default_column(flex=1)
+    gb.configure_selection('single')
+
+    # Configure display of columns.
+    for col, label in columns.items():
+        if type(mapper.columns[col].type) == Date:
+            # Configure display of preformatted date columns.            
+            fmt_col = f"{col}_formatted"
+            gb.configure_column(fmt_col, headerName=label)
+            # Hide original date column.
+            gb.configure_column(col, hide=True)                        
+        else:
+            gb.configure_column(col, headerName=label)
+
+    # Configure display of hiararchy if parent_column was provided.
+    if parent_column is not None:
+        first_col, first_label = next(iter(columns.items()))
+        gb.configure_grid_options(
+            treeData=True,
+            getDataPath=JsCode("function(data) { return data.path.split('/'); }"),
+            autoGroupColumnDef={
+                "headerName": first_label,
+                "field": first_col,
+                "cellRendererParams": {"suppressCount": True}
+            },
+            groupDefaultExpanded=-1,
+            animateRows=True
+        )
+        gb.configure_column(first_col, hide=True)
+        gb.configure_column('path', hide=True)
+    grid_options = gb.build()
+
+    # Show the grid
+    response = AgGrid(
+        df,
+        gridOptions=grid_options,        
+        update_mode='MODEL_CHANGED',
+        fit_columns_on_grid_load=True,
+        use_container_width=True,
+        enable_enterprise_modules=True,
+        allow_unsafe_jscode=True
+    )
+    return response
 
 def create_form(instance, columns, options=None, session=None, button_label="Submit"):
     """
@@ -128,9 +233,9 @@ def create_form(instance, columns, options=None, session=None, button_label="Sub
                 if new_val == "":
                     new_val = None
 
-            # Create text input field if of SQLAlchemy type String.
+            # Create text input field if of SQLAlchemy type Date.
             elif sa_col_type == Date:
-                new_val = st.date_input(label, value=pd.to_datetime(val) if val else None, format="YYYY-MM-DD") 
+                new_val = st.date_input(label, value=pd.to_datetime(val) if val else None, format="YYYY-MM-DD")
                        
             # Create remaining form fields based on Python type.
             elif isinstance(val, int):

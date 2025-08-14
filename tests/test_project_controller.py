@@ -92,7 +92,7 @@ class TestProjectController(unittest.TestCase):
         child = self.controller.add(child)
         self.assertEqual(child.parent, project)
 
-    def test_get_project(self):
+    def test_get_project_by_id(self):
         """
         Test the get_project method of ProjectController.
 
@@ -248,7 +248,56 @@ class TestProjectController(unittest.TestCase):
             project = self.session.query(Project).filter(Project.project_id == id).first()
             self.assertIsNone(project)
 
-    def test_get_projects(self):
+    def test_delete_project_by_id(self):
+        """
+        Test the delete_by_id method of ProjectController.
+
+        This test verifies:
+        - A project and all its descendants are deleted by ID.
+        - get_by_id does not return a deleted project.
+        - Unrelated projects are not affected.
+        - Only the correct projects are returned by delete_by_id.
+
+        Test steps:
+        1. Add a parent project, two child projects, a grandchild, and an unrelated project.
+        2. Delete the parent project by ID, verify all descendants are deleted, and the unrelated project remains unaffected.
+        3. Ensure get_by_id does not return deleted projects.
+        4. Ensure deleted projects are removed from the database.
+        """
+        # Create projects.
+        parent = Project(title="Parent project")
+        parent = self.controller.add(parent)
+        child1 = Project(title="Child 1", parent_id=parent.project_id)
+        child1 = self.controller.add(child1)
+        child2 = Project(title="Child 2", parent_id=parent.project_id)
+        child2 = self.controller.add(child2)
+        grandchild = Project(title="Grandchild", parent_id=child1.project_id)
+        grandchild = self.controller.add(grandchild)
+        unrelated = Project(title="Unrelated project")
+        unrelated = self.controller.add(unrelated)
+        # Delete parent project by ID and verify deletion of parent and descendants.
+        deleted = self.controller.delete_by_id(parent.project_id)
+        self.assertIn(parent, deleted)
+        self.assertIn(child1, deleted)
+        self.assertIn(child2, deleted)
+        self.assertIn(grandchild, deleted)
+        self.assertNotIn(unrelated, deleted)
+        self.assertEqual(set(deleted), {parent, child1, child2, grandchild})
+        # Ensure deleting a non-existing project fails.
+        with self.assertRaises(ValueError):
+            self.controller.delete_by_id(parent.project_id)
+        # Ensure get_by_id does not return deleted project.
+        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+            with self.assertRaises(ValueError):
+                self.controller.get_by_id(id)
+        # Unrelated project should still be retrievable
+        self.assertEqual(self.controller.get_by_id(unrelated.project_id).title, "Unrelated project")
+        # Ensure deleted projects are removed from the projects table.
+        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+            project = self.session.query(Project).filter(Project.project_id == id).first()
+            self.assertIsNone(project)
+
+    def test_get_all_projects(self):
         """
         Test the get_projects method of ProjectController.
 
@@ -317,7 +366,7 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(history[2].title, "History Test Project v1")
         self.assertEqual(history[2].description, "v1")
         
-    def test_possible_parents(self):
+    def test_possible_parent_projects(self):
         # Create some projects using controller
         p1 = self.controller.add(Project(title="Alpha"))
         p2 = self.controller.add(Project(title="Beta"))

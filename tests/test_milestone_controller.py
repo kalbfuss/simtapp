@@ -110,7 +110,7 @@ class TestMilestoneController(unittest.TestCase):
         child2 = self.controller.add(child2)
         self.assertEqual(child2.project_id, milestone.project_id)
 
-    def test_get_milestone(self):
+    def test_get_milestone_by_id(self):
         """
         Test the get_milestone method of MilestoneController.
 
@@ -310,7 +310,7 @@ class TestMilestoneController(unittest.TestCase):
         self.assertEqual(history[2].title, "History Test Milestone v1")
         self.assertEqual(history[2].description, "v1")
 
-    def test_get_milestones(self):
+    def test_get_all_milestones(self):
         """
         Test the get_milestones method of MilestoneController.
 

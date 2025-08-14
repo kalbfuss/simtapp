@@ -17,7 +17,7 @@ class ProjectController:
         """
         self.session = session
 
-    def add_project(self, project):
+    def add(self, project):
         """
         Add a new project to the database.
 
@@ -33,7 +33,7 @@ class ProjectController:
         self.session.commit()
         return project
 
-    def update_project(self, project):
+    def update(self, project):
         """
         Update an existing project in the database.
 
@@ -50,7 +50,7 @@ class ProjectController:
         self.session.commit()
         return project
 
-    def delete_project(self, project):
+    def delete(self, project):
         """
         Remove a project and all its descendants from the database.
 
@@ -87,10 +87,10 @@ class ProjectController:
         :raises ValueError: If project is not found in the datbase.
         :return: List of project instances that were removed by this call
         """       
-        project = self.get_project(id)
-        return self.delete_project(project)
+        project = self.get_by_id(id)
+        return self.delete(project)
 
-    def get_projects(self):
+    def get_all(self):
         """
         Return all projects in the database.
 
@@ -98,7 +98,7 @@ class ProjectController:
         """
         return self.session.query(Project).all()
 
-    def get_project(self, project_id):
+    def get_by_id(self, project_id):
         """
         Return the project with the given ID from the database.
 
@@ -111,7 +111,7 @@ class ProjectController:
             raise ValueError("Project not found.")
         return project
 
-    def get_project_history(self, project):
+    def get_history(self, project):
         """
         Return all previous versions of a project in the database.
 

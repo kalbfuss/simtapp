@@ -71,7 +71,7 @@ class TestProjectController(unittest.TestCase):
             initiation_date=date(2025, 6, 12),
             closure_date=date(2025, 6, 20)
         )
-        project = self.controller.add_project(project)
+        project = self.controller.add(project)
         self.assertIsNotNone(project.project_id)
         self.assertEqual(project.title, "Add test project")
         self.assertEqual(project.description, "Description")
@@ -89,7 +89,7 @@ class TestProjectController(unittest.TestCase):
             title="Child Project",
             parent=project
         )
-        child = self.controller.add_project(child)
+        child = self.controller.add(child)
         self.assertEqual(child.parent, project)
 
     def test_get_project(self):
@@ -115,9 +115,9 @@ class TestProjectController(unittest.TestCase):
             initiation_date=date(2025, 6, 12),
             closure_date=date(2025, 6, 20)
         )     
-        project = self.controller.add_project(project)
+        project = self.controller.add(project)
         # Ensure values in the database are as expected.        
-        fetched = self.controller.get_project(project.project_id)
+        fetched = self.controller.get_by_id(project.project_id)
         self.assertEqual(fetched.project_id, project.project_id)
         self.assertEqual(fetched.title, "Get Test Project")
         self.assertEqual(fetched.description, "Description")
@@ -127,7 +127,7 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(fetched.closure_date, date(2025, 6, 20))
         # Attempt to get non-existent project.
         with self.assertRaises(ValueError):
-            self.controller.get_project(99999)
+            self.controller.get_by_id(99999)
 
     def test_update_project(self):
         """
@@ -154,9 +154,9 @@ class TestProjectController(unittest.TestCase):
             closure_date=date(2025, 12, 31),
             parent_id=None
         )
-        project = self.controller.add_project(project)
+        project = self.controller.add(project)
         parent = Project(title="Parent for update")
-        parent = self.controller.add_project(parent)
+        parent = self.controller.add(parent)
         old_last_modified = project.last_modified
         old_created = project.created
         # Update values of the project
@@ -168,7 +168,7 @@ class TestProjectController(unittest.TestCase):
         project.initiation_date=date(2026, 2, 2)
         project.closure_date=date(2026, 11, 30)
         project.parent = parent
-        project = self.controller.update_project(project)
+        project = self.controller.update(project)
         self.assertEqual(project.title, "New title")
         self.assertEqual(project.description, "New description")
         self.assertEqual(project.organization, "New organization")
@@ -197,7 +197,7 @@ class TestProjectController(unittest.TestCase):
         # Ensure updating a non-existing project fails
         non_existing = Project(project_id=99999)
         with self.assertRaises(ValueError):
-            self.controller.update_project(non_existing)
+            self.controller.update(non_existing)
 
     def test_delete_project(self):
         """
@@ -217,17 +217,17 @@ class TestProjectController(unittest.TestCase):
         """
         # Create projects.
         parent = Project(title="Parent project")
-        parent = self.controller.add_project(parent)
+        parent = self.controller.add(parent)
         child1 = Project(title="Child 1", parent_id=parent.project_id)
-        child1 = self.controller.add_project(child1)
+        child1 = self.controller.add(child1)
         child2 = Project(title="Child 2", parent_id=parent.project_id)
-        child2 = self.controller.add_project(child2)
+        child2 = self.controller.add(child2)
         grandchild = Project(title="Grandchild", parent_id=child1.project_id)
-        grandchild = self.controller.add_project(grandchild)
+        grandchild = self.controller.add(grandchild)
         unrelated = Project(title="Unrelated project")
-        unrelated = self.controller.add_project(unrelated)
+        unrelated = self.controller.add(unrelated)
         # Delete parent project and verify deletion of parent and descendants.
-        deleted = self.controller.delete_project(parent)
+        deleted = self.controller.delete(parent)
         self.assertIn(parent, deleted)
         self.assertIn(child1, deleted)
         self.assertIn(child2, deleted)
@@ -236,13 +236,13 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(set(deleted), {parent, child1, child2, grandchild})
         # Ensure deleting a non-existing project fails.
         with self.assertRaises(ValueError):
-            self.controller.delete_project(parent)
+            self.controller.delete(parent)
         # Ensure get_project does not return deleted project.
         for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
             with self.assertRaises(ValueError):
-                self.controller.get_project(id)
+                self.controller.get_by_id(id)
         # Unrelated project should still be retrievable
-        self.assertEqual(self.controller.get_project(unrelated.project_id).title, "Unrelated project")
+        self.assertEqual(self.controller.get_by_id(unrelated.project_id).title, "Unrelated project")
         # Ensure deleted projects are removed from the projects table.
         for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
             project = self.session.query(Project).filter(Project.project_id == id).first()
@@ -262,19 +262,19 @@ class TestProjectController(unittest.TestCase):
         4. Ensure only one entry per project_id is returned.
         """
         project1 = Project(title="Project 1")
-        project1 = self.controller.add_project(project1)
+        project1 = self.controller.add(project1)
         project2 = Project(title="Project 2")
-        project2 = self.controller.add_project(project2)
+        project2 = self.controller.add(project2)
         # Update project1 (should increment version)
         project1.title="Project 1 updated"
-        self.controller.update_project(project1)
+        self.controller.update(project1)
         # Delete project2
-        self.controller.delete_project(project2)
+        self.controller.delete(project2)
         # Add a third project
         project3 = Project(title="Project 3")
-        project3 = self.controller.add_project(project3)
+        project3 = self.controller.add(project3)
         # get_projects should only return the latest version of project1 and project3 (not deleted)
-        projects = self.controller.get_projects()
+        projects = self.controller.get_all()
         project_titles = {p.title for p in projects}
         self.assertIn("Project 1 updated", project_titles)
         self.assertIn("Project 3", project_titles)
@@ -295,17 +295,17 @@ class TestProjectController(unittest.TestCase):
         2. Retrieve the project history and verify the order and content of all versions.
         """
         project = Project(title="History Test Project v1", description="v1")
-        project = self.controller.add_project(project)
+        project = self.controller.add(project)
         # Update the project.
         project.title = "History Test Project v2"
         project.description = "v2"
-        self.controller.update_project(project)
+        self.controller.update(project)
         # Update the project again.
         project.title = "History Test Project v3"
         project.description = "v3"
-        self.controller.update_project(project)
+        self.controller.update(project)
         # Get project history.
-        history = self.controller.get_project_history(project)
+        history = self.controller.get_history(project)
         # There should be 3 history entries
         self.assertEqual(len(history), 3)
         # Check order: latest version first
@@ -319,9 +319,9 @@ class TestProjectController(unittest.TestCase):
         
     def test_possible_parents(self):
         # Create some projects using controller
-        p1 = self.controller.add_project(Project(title="Alpha"))
-        p2 = self.controller.add_project(Project(title="Beta"))
-        p3 = self.controller.add_project(Project(title="Gamma"))
+        p1 = self.controller.add(Project(title="Alpha"))
+        p2 = self.controller.add(Project(title="Beta"))
+        p3 = self.controller.add(Project(title="Gamma"))
 
         result = self.controller.possible_parents()
         # Check keys and values

@@ -22,7 +22,7 @@ controller = ProjectController(session)
 
 def projects_table():
     # Get all projects from database.
-    projects = controller.get_projects()
+    projects = controller.get_all()
     if projects is None:
         st.info("No projects found.")
         return
@@ -62,7 +62,7 @@ def add_project():
     options = { 'parent_id': controller.possible_parents()}
     submitted = create_form(project, columns, options, button_label="Add")
     if submitted:
-        controller.add_project(project)
+        controller.add(project)
         st.rerun()
 
 @st.dialog("Edit Project")
@@ -75,7 +75,7 @@ def edit_project():
     if selected_row is None:
         st.error("Please select a project to edit.")
         return
-    project = controller.get_project(int(selected_row['project_id']))
+    project = controller.get_by_id(int(selected_row['project_id']))
     columns = {
         'title': 'Title',
         'parent_id': 'Parent',
@@ -89,7 +89,7 @@ def edit_project():
     options = { 'parent_id': controller.possible_parents(project)}
     submitted = create_form(project, columns, options)
     if submitted:
-        controller.add_project(project)
+        controller.update(project)
         st.rerun()
 
 @st.dialog("Confirm Deletion")

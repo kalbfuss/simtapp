@@ -19,7 +19,7 @@ class MilestoneController:
         """
         self.session = session
 
-    def add_milestone(self, milestone):
+    def add(self, milestone):
         """
         Add a new milestone to the database.
 
@@ -43,7 +43,7 @@ class MilestoneController:
         self.session.commit()
         return milestone
 
-    def update_milestone(self, milestone):
+    def update(self, milestone):
         """
         Update an existing milestone in the database.
         
@@ -67,7 +67,7 @@ class MilestoneController:
         self.session.commit()
         return milestone
 
-    def delete_milestone(self, milestone):
+    def delete(self, milestone):
         """
         Remove a milestone and all its descendants from the database.
 
@@ -96,7 +96,7 @@ class MilestoneController:
         self.session.commit()
         return deleted
 
-    def get_milestones(self, project_id=None):
+    def get_all(self, project_id=None):
         """
         Return all current milestones (not deleted). Optionally filter by project_id.
 
@@ -108,7 +108,7 @@ class MilestoneController:
             query = query.filter(Milestone.project_id == project_id)
         return query.all()
 
-    def get_milestone(self, milestone_id):
+    def get_by_id(self, milestone_id):
         """
         Return the milestone with the given ID from the database.
 
@@ -121,7 +121,7 @@ class MilestoneController:
             raise ValueError("Milestone not found.")
         return milestone
 
-    def get_milestone_history(self, milestone):
+    def get_history(self, milestone):
         """
         Return all previous versions of a milestone in the database.
 

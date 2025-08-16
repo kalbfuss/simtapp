@@ -20,7 +20,6 @@ class Milestone(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-    version = Column(Integer, nullable=False, default=1)
     title = Column(String(255), nullable=False)
     description = Column(Text, default="")
     initial_baseline_date = Column(Date, nullable=True)

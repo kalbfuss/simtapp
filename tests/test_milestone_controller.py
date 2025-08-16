@@ -342,12 +342,12 @@ class TestMilestoneController(unittest.TestCase):
         self.assertIn("M2", milestone_titles)
         self.assertIn("M3", milestone_titles)
         # Ensure that get_milestones with project_id filter returns the correct milestones.
-        project1_milestones = self.controller.get_all(project_id=project1.project_id)
+        project1_milestones = self.controller.get_all(project=project1)
         project1_titles = {m.title for m in project1_milestones}
         self.assertIn("M1", project1_titles)
         self.assertIn("M2", project1_titles)
         self.assertNotIn("M3", project1_titles)
-        project2_milestones = self.controller.get_all(project_id=project2.project_id)
+        project2_milestones = self.controller.get_all(project=project2)
         project2_titles = {m.title for m in project2_milestones}
         self.assertIn("M3", project2_titles)
         self.assertNotIn("M1", project2_titles)

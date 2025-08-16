@@ -96,16 +96,16 @@ class MilestoneController:
         self.session.commit()
         return deleted
 
-    def get_all(self, project_id=None):
+    def get_all(self, project=None):
         """
         Return all current milestones (not deleted). Optionally filter by project_id.
 
-        :param project_id: If set, only milestones for this project are returned
+        :param project: Project for which milestones shall be returned (optional)
         :return: List of all Milestone objects
         """
         query = self.session.query(Milestone)
-        if project_id is not None:
-            query = query.filter(Milestone.project_id == project_id)
+        if project is not None:
+            query = query.filter(Milestone.project_id == project.project_id)
         return query.all()
 
     def get_by_id(self, milestone_id):
@@ -129,3 +129,19 @@ class MilestoneController:
         :return: List of historical milestone instances
         """
         return [ version for version in milestone.versions[::-1] ]
+    
+    def possible_parents(self, milestone=None):
+        """
+        Returns a dictionary mapping 'title (ID)' to project IDs for all existing
+        projects except the given project. Useful for parent selection in forms.
+
+        :param project: Milestone instance for which possible parents shall be
+            returned. Possible parents must belong to the same project.
+        :return: Dictionary mapping 'title (ID)' to project IDs
+        """
+        query = self.session.query(Milestone)
+        if milestone is not None:
+            query = query.filter(Milestone.milestone_id != milestone.milestone_id)
+            query = query.filter(Milestone.project_id == milestone.project_id)
+        milestones = query.all()
+        return {f"{m.title} (ID {m.milestone_id})": m.milestone_id for m in milestones}

@@ -5,6 +5,7 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     Date,
+    DateTime,
 )
 from sqlalchemy.orm import relationship, backref
 
@@ -27,8 +28,8 @@ class Milestone(Base):
     acceptance_criteria = Column(Text, default="")
     project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=False)
     parent_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=True)
-    created = Column(Date, nullable=False)
-    last_modified = Column(Date, nullable=False)
+    created = Column(DateTime, nullable=False)
+    last_modified = Column(DateTime, nullable=False)
 
     parent = relationship(
         "Milestone",

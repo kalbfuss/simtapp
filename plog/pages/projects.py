@@ -6,7 +6,7 @@ All code and documentation must be in English.
 import pandas as pd
 import streamlit as st
 
-from plog.common import init, create_form, create_table
+from plog.common import init, create_form, create_sidebar, create_table
 from plog.models.project import Project
 from plog.controllers.project_controller import ProjectController
 
@@ -23,7 +23,7 @@ controller = ProjectController(session)
 def projects_table():
     # Get all projects from database.
     projects = controller.get_all()
-    if projects is None:
+    if not projects:
         st.info("No projects found.")
         return
     # Define columns for display.

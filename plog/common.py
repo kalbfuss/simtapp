@@ -12,6 +12,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from plog.models.common import Base
 from plog.models.milestone import Milestone
 from plog.models.project import Project
+from plog.controllers.project_controller import ProjectController
 
 
 # Set logging level
@@ -53,21 +54,7 @@ def shutdown():
 # Run on_shutdown before the python interpreter exits.
 atexit.register(shutdown)
 
-def parse_date(val):
-    """
-    Convert string to date if needed.
-    """
-    if val is None or val == '':
-        return None
-    if isinstance(val, date):
-        return val
-    try:
-        return dt.fromisoformat(val).date()
-    except Exception:
-        try:
-            return dt.strptime(val, "%Y-%m-%d").date()
-        except Exception:
-            return None
+
 
 def create_table(objects, columns, parent_column=None):
     """
@@ -217,8 +204,6 @@ def create_form(instance, columns, options=None, session=None, button_label="Sub
                         elif obj == val:
                             current_idx = i
                 selected_label, selected_obj = st.selectbox(label, select_options, index=current_idx, format_func=lambda x: x[0])
-                logging.info(f"Selected label: {selected_label}")
-                logging.info(f"Selected obj: {selected_obj}")
                 new_val = selected_obj
 
             # Create text area field if of SQLAlchemy type Text.
@@ -256,3 +241,50 @@ def create_form(instance, columns, options=None, session=None, button_label="Sub
             st.info("Edit cancelled.")
             return st.rerun()
         return submitted
+
+
+def create_sidebar(session=None):
+    """
+    Creates a streamlit sidebar with a project selection box and navigation sections.
+    The sidebar is divided into a regular section and an admin section.
+
+    :param session: SQLAlchemy session to use (optional, default: None).
+    :type session: sqlalchemy.orm.Session
+    """
+    # Check if session is provided, otherwise use the one from session state
+    if session is None:
+        session = st.session_state['session']
+
+    with st.sidebar:
+        # Create project selection box.
+        controller = ProjectController(session)
+        projects = {p.project_id: p.title for p in controller.get_all()}
+        index = 0
+        if 'project' in st.session_state:
+            project = st.session_state['project']
+            index = list(projects.keys()).index(project.project_id)
+        selected_id = st.selectbox(
+            "Current project",
+            projects,
+            index=index,
+            format_func=lambda id: f"{projects[id]} (ID {id})"
+        )       
+        if selected_id:
+            project = controller.get_by_id(selected_id)
+            st.session_state['project'] = project
+            logging.info(f"Project '{project.title} (ID {project.project_id})' selected as current project.")
+              
+        # Define navigation menu.
+        pages = {
+            'Project': [
+                st.Page("pages/milestones.py", title="Milestones")
+            ],
+            'Admin': [
+                st.Page("pages/projects.py", title="Projects")
+            ]              
+        }
+        page = st.navigation(pages)
+       
+    # Disply the current page.
+    page.run()
+        

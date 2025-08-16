@@ -27,7 +27,6 @@ class TestMilestoneController(unittest.TestCase):
         logging.basicConfig(level=logging.DEBUG)
         # Create database and session
         self.db_path = os.path.abspath("test_milestones.sqlite")
-        logging.debug(self.db_path)
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
         configure_mappers()
@@ -86,13 +85,13 @@ class TestMilestoneController(unittest.TestCase):
         self.assertEqual(milestone.initial_baseline_date, date(2025, 6, 12))
         self.assertEqual(milestone.latest_baseline_date, date(2025, 6, 20))
         self.assertEqual(milestone.acceptance_criteria, "Criteria")
-        self.assertEqual(milestone.project_id, project.project_id)
+        self.assertEqual(milestone.project_id, project.id)
         # Add a second milestone to the same project.
         milestone2 = Milestone(title="First test milestone", project=project, description="Second description")
         milestone2 = self.controller.add(milestone2)
         self.assertIsNotNone(milestone2.id)
         self.assertNotEqual(milestone.id, milestone2.id)
-        self.assertEqual(milestone2.project_id, project.project_id)
+        self.assertEqual(milestone2.project_id, project.id)
         self.assertEqual(milestone2.title, "First test milestone")
         self.assertEqual(milestone2.description, "Second description")
         # Ensure adding a milestone not associated to any project fails.
@@ -103,7 +102,7 @@ class TestMilestoneController(unittest.TestCase):
         child1 = Milestone(title="Child milestone", project=project, parent=milestone)
         child1 = self.controller.add(child1)
         self.assertEqual(child1.parent_id, milestone.id)
-        self.assertEqual(child1.project_id, project.project_id)
+        self.assertEqual(child1.project_id, project.id)
         # Ensure linkage of milestone to same project as parent is enforced.
         project2 = Project(title="Other project")
         project2 = self.project_controller.add(project2)
@@ -145,7 +144,7 @@ class TestMilestoneController(unittest.TestCase):
         self.assertEqual(fetched.initial_baseline_date, date(2025, 7, 1))
         self.assertEqual(fetched.latest_baseline_date, date(2025, 7, 10))
         self.assertEqual(fetched.acceptance_criteria, "Criteria")
-        self.assertEqual(fetched.project_id, project.project_id)
+        self.assertEqual(fetched.project_id, project.id)
         # Attempt to get non-existent milestone.
         with self.assertRaises(ValueError):
             self.controller.get_by_id(99999)

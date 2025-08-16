@@ -105,7 +105,7 @@ class MilestoneController:
         """
         query = self.session.query(Milestone)
         if project is not None:
-            query = query.filter(Milestone.project_id == project.project_id)
+            query = query.filter(Milestone.project_id == project.id)
         return query.all()
 
     def get_by_id(self, id):

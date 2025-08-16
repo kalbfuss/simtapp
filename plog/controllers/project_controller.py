@@ -22,7 +22,7 @@ class ProjectController:
         Add a new project to the database.
 
         :param project: Project instance to add
-        :return: The added Project instance (with assigned project_id)
+        :return: The added Project instance (with assigned ID)
         """
         # Set creation and last_modified timestamps.
         now = datetime.now(timezone.utc)
@@ -41,7 +41,7 @@ class ProjectController:
         :raises ValueError: If the project is not found
         :return: The updated project instance
         """
-        db_project = self.session.query(Project).filter(Project.project_id == project.project_id).first()
+        db_project = self.session.query(Project).filter(Project.id == project.id).first()
         # Ensure the project exists in the database.
         if db_project is None:
             raise ValueError("Project not found.")
@@ -67,7 +67,7 @@ class ProjectController:
                 children.extend(collect_children(child))
             return children
        
-        db_project = self.session.query(Project).filter(Project.project_id == project.project_id).first()
+        db_project = self.session.query(Project).filter(Project.id == project.id).first()
         # Ensure the project exists in the database.
         if db_project is None:
             raise ValueError("Project not found.")
@@ -98,15 +98,15 @@ class ProjectController:
         """
         return self.session.query(Project).all()
 
-    def get_by_id(self, project_id):
+    def get_by_id(self, id):
         """
         Return the project with the given ID from the database.
 
-        :param project_id: ID of the project
+        :param id: ID of the project
         :raises ValueError: If no project is found
         :return: The project instance
         """
-        project = self.session.query(Project).filter(Project.project_id == project_id).first()
+        project = self.session.query(Project).filter(Project.id == id).first()
         if project is None:
             raise ValueError("Project not found.")
         return project
@@ -130,6 +130,6 @@ class ProjectController:
         """
         query = self.session.query(Project)
         if project is not None:
-            query = query.filter(Project.project_id != project.project_id)
+            query = query.filter(Project.id != project.id)
         projects = query.all()
-        return {f"{p.title} (ID {p.project_id})": p.project_id for p in projects}
+        return {f"{p.title} (ID {p.id})": p.id for p in projects}

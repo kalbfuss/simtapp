@@ -72,7 +72,7 @@ class TestProjectController(unittest.TestCase):
             closure_date=date(2025, 6, 20)
         )
         project = self.controller.add(project)
-        self.assertIsNotNone(project.project_id)
+        self.assertIsNotNone(project.id)
         self.assertEqual(project.title, "Add test project")
         self.assertEqual(project.description, "Description")
         self.assertEqual(project.organization, "Test organization")
@@ -117,8 +117,8 @@ class TestProjectController(unittest.TestCase):
         )     
         project = self.controller.add(project)
         # Ensure values in the database are as expected.        
-        fetched = self.controller.get_by_id(project.project_id)
-        self.assertEqual(fetched.project_id, project.project_id)
+        fetched = self.controller.get_by_id(project.id)
+        self.assertEqual(fetched.id, project.id)
         self.assertEqual(fetched.title, "Get Test Project")
         self.assertEqual(fetched.description, "Description")
         self.assertEqual(fetched.organization, "Test organization")
@@ -176,7 +176,7 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(project.project_sponsor, "New sponsor")
         self.assertEqual(project.initiation_date, date(2026, 2, 2))
         self.assertEqual(project.closure_date, date(2026, 11, 30))
-        self.assertEqual(project.parent_id, parent.project_id)
+        self.assertEqual(project.parent_id, parent.id)
         self.assertEqual(project.versions.count(), 2)
         self.assertIsNotNone(project.last_modified)
         self.assertGreaterEqual(project.last_modified, old_last_modified)
@@ -195,7 +195,7 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(old.created, old_created)
         self.assertEqual(old.last_modified, old_last_modified)
         # Ensure updating a non-existing project fails
-        non_existing = Project(project_id=99999)
+        non_existing = Project(id=99999)
         with self.assertRaises(ValueError):
             self.controller.update(non_existing)
 
@@ -218,11 +218,11 @@ class TestProjectController(unittest.TestCase):
         # Create projects.
         parent = Project(title="Parent project")
         parent = self.controller.add(parent)
-        child1 = Project(title="Child 1", parent_id=parent.project_id)
+        child1 = Project(title="Child 1", parent_id=parent.id)
         child1 = self.controller.add(child1)
-        child2 = Project(title="Child 2", parent_id=parent.project_id)
+        child2 = Project(title="Child 2", parent_id=parent.id)
         child2 = self.controller.add(child2)
-        grandchild = Project(title="Grandchild", parent_id=child1.project_id)
+        grandchild = Project(title="Grandchild", parent_id=child1.id)
         grandchild = self.controller.add(grandchild)
         unrelated = Project(title="Unrelated project")
         unrelated = self.controller.add(unrelated)
@@ -238,14 +238,14 @@ class TestProjectController(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.controller.delete(parent)
         # Ensure get_project does not return deleted project.
-        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+        for id in [parent.id, child1.id, child2.id, grandchild.id]:
             with self.assertRaises(ValueError):
                 self.controller.get_by_id(id)
         # Unrelated project should still be retrievable
-        self.assertEqual(self.controller.get_by_id(unrelated.project_id).title, "Unrelated project")
+        self.assertEqual(self.controller.get_by_id(unrelated.id).title, "Unrelated project")
         # Ensure deleted projects are removed from the projects table.
-        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
-            project = self.session.query(Project).filter(Project.project_id == id).first()
+        for id in [parent.id, child1.id, child2.id, grandchild.id]:
+            project = self.session.query(Project).filter(Project.id == id).first()
             self.assertIsNone(project)
 
     def test_delete_project_by_id(self):
@@ -267,16 +267,16 @@ class TestProjectController(unittest.TestCase):
         # Create projects.
         parent = Project(title="Parent project")
         parent = self.controller.add(parent)
-        child1 = Project(title="Child 1", parent_id=parent.project_id)
+        child1 = Project(title="Child 1", parent_id=parent.id)
         child1 = self.controller.add(child1)
-        child2 = Project(title="Child 2", parent_id=parent.project_id)
+        child2 = Project(title="Child 2", parent_id=parent.id)
         child2 = self.controller.add(child2)
-        grandchild = Project(title="Grandchild", parent_id=child1.project_id)
+        grandchild = Project(title="Grandchild", parent_id=child1.id)
         grandchild = self.controller.add(grandchild)
         unrelated = Project(title="Unrelated project")
         unrelated = self.controller.add(unrelated)
         # Delete parent project by ID and verify deletion of parent and descendants.
-        deleted = self.controller.delete_by_id(parent.project_id)
+        deleted = self.controller.delete_by_id(parent.id)
         self.assertIn(parent, deleted)
         self.assertIn(child1, deleted)
         self.assertIn(child2, deleted)
@@ -285,16 +285,16 @@ class TestProjectController(unittest.TestCase):
         self.assertEqual(set(deleted), {parent, child1, child2, grandchild})
         # Ensure deleting a non-existing project fails.
         with self.assertRaises(ValueError):
-            self.controller.delete_by_id(parent.project_id)
+            self.controller.delete_by_id(parent.id)
         # Ensure get_by_id does not return deleted project.
-        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
+        for id in [parent.id, child1.id, child2.id, grandchild.id]:
             with self.assertRaises(ValueError):
                 self.controller.get_by_id(id)
         # Unrelated project should still be retrievable
-        self.assertEqual(self.controller.get_by_id(unrelated.project_id).title, "Unrelated project")
+        self.assertEqual(self.controller.get_by_id(unrelated.id).title, "Unrelated project")
         # Ensure deleted projects are removed from the projects table.
-        for id in [parent.project_id, child1.project_id, child2.project_id, grandchild.project_id]:
-            project = self.session.query(Project).filter(Project.project_id == id).first()
+        for id in [parent.id, child1.id, child2.id, grandchild.id]:
+            project = self.session.query(Project).filter(Project.id == id).first()
             self.assertIsNone(project)
 
     def test_get_all_projects(self):
@@ -308,7 +308,7 @@ class TestProjectController(unittest.TestCase):
         1. Add two projects and update one of them.
         2. Soft-delete one project and add a third project.
         3. Retrieve all projects and verify only the latest, non-deleted versions are returned.
-        4. Ensure only one entry per project_id is returned.
+        4. Ensure only one entry per project ID is returned.
         """
         project1 = Project(title="Project 1")
         project1 = self.controller.add(project1)
@@ -328,9 +328,9 @@ class TestProjectController(unittest.TestCase):
         self.assertIn("Project 1 updated", project_titles)
         self.assertIn("Project 3", project_titles)
         self.assertNotIn("Project 2", project_titles)
-        # Ensure only one entry per project_id
-        project_ids = [p.project_id for p in projects]
-        self.assertEqual(len(project_ids), len(set(project_ids)))
+        # Ensure only one entry per project ID.
+        ids = [p.id for p in projects]
+        self.assertEqual(len(ids), len(set(ids)))
 
     def test_get_project_history(self):
         """
@@ -374,15 +374,15 @@ class TestProjectController(unittest.TestCase):
 
         result = self.controller.possible_parents()
         # Check keys and values
-        expected_keys = {f"Alpha (ID {p1.project_id})", f"Beta (ID {p2.project_id})", f"Gamma (ID {p3.project_id})"}
+        expected_keys = {f"Alpha (ID {p1.id})", f"Beta (ID {p2.id})", f"Gamma (ID {p3.id})"}
         assert set(result.keys()) == expected_keys
-        assert result[f"Alpha (ID {p1.project_id})"] == p1.project_id
-        assert result[f"Beta (ID {p2.project_id})"] == p2.project_id
-        assert result[f"Gamma (ID {p3.project_id})"] == p3.project_id
+        assert result[f"Alpha (ID {p1.id})"] == p1.id
+        assert result[f"Beta (ID {p2.id})"] == p2.id
+        assert result[f"Gamma (ID {p3.id})"] == p3.id
 
         result = self.controller.possible_parents(p1)
         # Check keys and values
-        expected_keys = {f"Beta (ID {p2.project_id})", f"Gamma (ID {p3.project_id})"}
+        expected_keys = {f"Beta (ID {p2.id})", f"Gamma (ID {p3.id})"}
         assert set(result.keys()) == expected_keys
 
 

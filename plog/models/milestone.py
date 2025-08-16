@@ -25,7 +25,7 @@ class Milestone(Base):
     initial_baseline_date = Column(Date, nullable=True)
     latest_baseline_date = Column(Date, nullable=True)
     acceptance_criteria = Column(Text, default="")
-    project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     parent_id = Column(Integer, ForeignKey("milestones.id"), nullable=True)
     created = Column(DateTime, nullable=False)
     last_modified = Column(DateTime, nullable=False)

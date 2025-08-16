@@ -20,7 +20,7 @@ class Project(Base):
     __versioned__ = {}
     __tablename__ = "projects"
 
-    project_id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, default="")
     organization = Column(String(255), default="")
@@ -28,13 +28,13 @@ class Project(Base):
     project_sponsor = Column(String(255), default="")
     initiation_date = Column(Date, nullable=True)
     closure_date = Column(Date, nullable=True)
-    parent_id = Column(Integer, ForeignKey("projects.project_id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
     created = Column(DateTime, nullable=False, default=datetime.now(timezone.utc))
     last_modified = Column(DateTime, nullable=False, default=datetime.now(timezone.utc))
 
     parent = relationship(
         "Project",
-        remote_side=[project_id],
+        remote_side=[id],
         backref=backref("children", cascade="all, delete-orphan", passive_deletes=True)
     )
     milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")

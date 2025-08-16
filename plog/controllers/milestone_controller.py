@@ -96,6 +96,17 @@ class MilestoneController:
         self.session.commit()
         return deleted
 
+    def delete_by_id(self, id):
+        """
+        Remove a milestone by its ID and all its descendants from the database.
+
+        :param id: ID of milestone instance to delete
+        :raises ValueError: If milestone is not found in the datbase.
+        :return: List of milestone instances that were removed by this call
+        """       
+        milestone = self.get_by_id(id)
+        return self.delete(milestone)
+
     def get_all(self, project=None):
         """
         Return all current milestones (not deleted). Optionally filter by project_id.

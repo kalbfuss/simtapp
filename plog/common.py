@@ -84,14 +84,14 @@ def create_table(objects, columns, parent_column=None):
         path = []
         current = object
         while current is not None:
-            path.append(str(current.project_id))
+            path.append(str(current.id))
             current = id_map.get(current.parent_id)
         return '/'.join(reversed(path))
 
     # Build a lookup for parent traversal and add 'path' column if needed
     rows = []
     if parent_column is not None:
-        id_map = {getattr(obj, 'project_id', None): obj for obj in objects}
+        id_map = {getattr(obj, 'id', None): obj for obj in objects}
         for obj in objects:
             row = {col: getattr(obj, col, None) for col in columns.keys()}
             row['path'] = get_hierarchy_path(obj, id_map)
@@ -258,11 +258,11 @@ def create_sidebar(session=None):
     with st.sidebar:
         # Create project selection box.
         controller = ProjectController(session)
-        projects = {p.project_id: p.title for p in controller.get_all()}
+        projects = {p.id: p.title for p in controller.get_all()}
         index = 0
         if 'project' in st.session_state:
             project = st.session_state['project']
-            index = list(projects.keys()).index(project.project_id)
+            index = list(projects.keys()).index(project.id)
         selected_id = st.selectbox(
             "Current project",
             projects,
@@ -272,7 +272,7 @@ def create_sidebar(session=None):
         if selected_id:
             project = controller.get_by_id(selected_id)
             st.session_state['project'] = project
-            logging.info(f"Project '{project.title} (ID {project.project_id})' selected as current project.")
+            logging.info(f"Project '{project.title} (ID {project.id})' selected as current project.")
               
         # Define navigation menu.
         pages = {

@@ -29,7 +29,7 @@ def projects_table():
     # Define columns for display.
     columns = {
         'title': 'Title',
-        'project_id': 'ID',
+        'id': 'ID',
         'organization': 'Organization',
         'project_manager': 'Project Manager',
         'project_sponsor': 'Project Sponsor',
@@ -75,7 +75,7 @@ def edit_project():
     if selected_row is None:
         st.error("Please select a project to edit.")
         return
-    project = controller.get_by_id(int(selected_row['project_id']))
+    project = controller.get_by_id(int(selected_row['id']))
     columns = {
         'title': 'Title',
         'parent_id': 'Parent',
@@ -102,11 +102,11 @@ def delete_project():
         st.error("No project selected for deletion.")
         return
     # Show confirmation dialog
-    st.warning(f"Are you sure you want to delete project '{selected_row['title']}' (ID {selected_row['project_id']})?")
+    st.warning(f"Are you sure you want to delete project '{selected_row['title']}' (ID {selected_row['id']})?")
     confirm = st.button("Yes, delete project", key="confirm_delete")
     cancel = st.button("Cancel", key="cancel_delete")
     if confirm:
-        controller.delete_by_id(int(selected_row['project_id']))
+        controller.delete_by_id(int(selected_row['id']))
         st.success("Project deleted.")
         del st.session_state['selected_row']
         st.rerun()

@@ -30,7 +30,7 @@ def milestones_table():
     # Define columns for display.
     columns = {
         'title': 'Title',
-        'milestone_id': 'ID',
+        'id': 'ID',
         'acceptance_criteria': 'Acceptance Criteria',
         'initial_baseline_date': 'Initial Baseline',
         'latest_baseline_date': 'Latest Baseline',
@@ -48,6 +48,7 @@ def add_milestone():
     Show a form to add a new milestone.
     """
     milestone = Milestone()
+    milestone.project_id = project.id
     columns = {
         'title': 'Title',
         'parent_id': 'Parent',
@@ -73,7 +74,7 @@ def edit_milestone():
     if selected_row is None:
         st.error("Please select a project to edit.")
         return
-    milestone = controller.get_by_id(int(selected_row['milestone_id']))
+    milestone = controller.get_by_id(int(selected_row['id']))
     columns = {
         'title': 'Title',
         'parent_id': 'Parent',
@@ -98,11 +99,11 @@ def delete_milestone():
         st.error("No project selected for deletion.")
         return
     # Show confirmation dialog
-    st.warning(f"Are you sure you want to delete milestone '{selected_row['title']}' (ID {selected_row['milestone_id']})?")
+    st.warning(f"Are you sure you want to delete milestone '{selected_row['title']}' (ID {selected_row['id']})?")
     confirm = st.button("Yes, delete milestone", key="confirm_delete")
     cancel = st.button("Cancel", key="cancel_delete")
     if confirm:
-        controller.delete_by_id(int(selected_row['milestone_id']))
+        controller.delete_by_id(int(selected_row['id']))
         st.success("Project deleted.")
         del st.session_state['selected_row']
         st.rerun()

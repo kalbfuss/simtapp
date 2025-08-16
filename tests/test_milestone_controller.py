@@ -353,5 +353,55 @@ class TestMilestoneController(unittest.TestCase):
         self.assertNotIn("M1", project2_titles)
         self.assertNotIn("M2", project2_titles)
 
+    def test_possible_parent_milestones(self):
+        """
+        Test the possible_parents method of MilestoneController.
+
+        This test verifies:
+        - All milestones are returned if no milestone is specified
+        - Only milestones from the same project are returned when a milestone is specified
+        - The specified milestone itself is not included in the possible parents
+        - The return format is correct ('title (ID)' -> milestone_id)
+
+        Test steps:
+        1. Create two projects with multiple milestones each
+        2. Test possible_parents without specifying a milestone
+        3. Test possible_parents with a milestone from project 1
+        4. Verify the specified milestone is not included
+        """
+        # Create two projects
+        project1 = Project(title="Project 1")
+        project1 = self.project_controller.add(project1)
+        project2 = Project(title="Project 2")
+        project2 = self.project_controller.add(project2)
+
+        # Add milestones to both projects
+        m1 = Milestone(title="M1", project=project1)
+        m1 = self.controller.add(m1)
+        m2 = Milestone(title="M2", project=project1)
+        m2 = self.controller.add(m2)
+        m3 = Milestone(title="M3", project=project2)
+        m3 = self.controller.add(m3)
+
+        # Test without specifying a milestone - should return all milestones
+        all_parents = self.controller.possible_parents()
+        self.assertEqual(len(all_parents), 3)
+        expected_keys = {
+            f"M1 (ID {m1.milestone_id})",
+            f"M2 (ID {m2.milestone_id})",
+            f"M3 (ID {m3.milestone_id})"
+        }
+        self.assertEqual(set(all_parents.keys()), expected_keys)
+        self.assertEqual(all_parents[f"M1 (ID {m1.milestone_id})"], m1.milestone_id)
+
+        # Test with milestone from project1 - should return only milestones from project1
+        # except the milestone itself
+        p1_parents = self.controller.possible_parents(m1)
+        self.assertEqual(len(p1_parents), 1)
+        self.assertIn(f"M2 (ID {m2.milestone_id})", p1_parents)
+        self.assertNotIn(f"M1 (ID {m1.milestone_id})", p1_parents)  # Should not include itself
+        self.assertNotIn(f"M3 (ID {m3.milestone_id})", p1_parents)  # Should not include other project
+
+
 if __name__ == "__main__":
     unittest.main()

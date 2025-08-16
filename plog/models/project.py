@@ -40,4 +40,4 @@ class Project(Base):
     milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")
         
     def __repr__(self):
-        return f"<Project(title={self.title!r}, organization={self.organization!r})>"
+        return f"<Project(title={self.title!r})>"

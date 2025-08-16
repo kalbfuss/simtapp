@@ -24,7 +24,7 @@ class MilestoneController:
         Add a new milestone to the database.
 
         :param milestone: Milestone instance to add
-        :return: The added Milestone instance (with assigned milestone_id)
+        :return: The added Milestone instance (with assigned id)
         :raises ValueError: If parent milestone exists and project_id does not match
         """
         # Ensure milestone is linked to same project as parent if exists.
@@ -52,7 +52,7 @@ class MilestoneController:
         :return: The updated milestone instance
         """
         # Ensure the milestone exists in the database.        
-        db_milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone.milestone_id).first()
+        db_milestone = self.session.query(Milestone).filter(Milestone.id == milestone.id).first()
         if db_milestone is None:
             raise ValueError("Milestone not found.")
         # Ensure milestone is linked to same project as parent if exists.
@@ -84,7 +84,7 @@ class MilestoneController:
                 children.extend(collect_children(child))
             return children
        
-        db_milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone.milestone_id).first()
+        db_milestone = self.session.query(Milestone).filter(Milestone.id == milestone.id).first()
         # Ensure the project exists in the database.
         if db_milestone is None:
             raise ValueError("Milestone not found.")
@@ -108,15 +108,15 @@ class MilestoneController:
             query = query.filter(Milestone.project_id == project.project_id)
         return query.all()
 
-    def get_by_id(self, milestone_id):
+    def get_by_id(self, id):
         """
         Return the milestone with the given ID from the database.
 
-        :param milestone_id: ID of the milestone
+        :param id: ID of the milestone
         :raises ValueError: If no milestone is found
         :return: The milestone instance
         """
-        milestone = self.session.query(Milestone).filter(Milestone.milestone_id == milestone_id).first()
+        milestone = self.session.query(Milestone).filter(Milestone.id == id).first()
         if milestone is None:
             raise ValueError("Milestone not found.")
         return milestone
@@ -141,7 +141,7 @@ class MilestoneController:
         """
         query = self.session.query(Milestone)
         if milestone is not None:
-            query = query.filter(Milestone.milestone_id != milestone.milestone_id)
+            query = query.filter(Milestone.id != milestone.id)
             query = query.filter(Milestone.project_id == milestone.project_id)
         milestones = query.all()
-        return {f"{m.title} (ID {m.milestone_id})": m.milestone_id for m in milestones}
+        return {f"{m.title} (ID {m.id})": m.id for m in milestones}

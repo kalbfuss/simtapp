@@ -14,7 +14,7 @@ from plog.models.common import Base
 
 class Milestone(Base):
     """
-    Data model for the persistent storage of current milestone objects.
+    Data model for the persistent storage of milestone objects.
     """
     __versioned__ = {}
     __tablename__ = "milestones"
@@ -49,7 +49,7 @@ class Milestone(Base):
     
 class MilestoneDate(Base):
     """
-    Data model for the persistent storage of current milestone objects.
+    Data model for the persistent storage of milestone date objects.
     """
     __versioned__ = {}
     __tablename__ = "milestone_dates"

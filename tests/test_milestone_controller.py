@@ -6,7 +6,7 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import configure_mappers, sessionmaker
 
-from plog.models.milestone import Milestone, Base
+from plog.models.milestone import Milestone, MilestoneDate, Base
 from plog.models.project import Project
 from plog.controllers.milestone_controller import MilestoneController
 from plog.controllers.project_controller import ProjectController
@@ -401,6 +401,116 @@ class TestMilestoneController(unittest.TestCase):
         self.assertIn(f"M2 (ID {m2.id})", p1_parents)
         self.assertNotIn(f"M1 (ID {m1.id})", p1_parents)  # Should not include itself
         self.assertNotIn(f"M3 (ID {m3.id})", p1_parents)  # Should not include other project
+
+    def __create_milestone_and_date(self):
+        """
+        Create a project and a milestone for milestone date related tests.
+        
+        This is a helper method used by the following unit tests:
+        - test_add_milestone_date
+        - test_update_milestone_date
+        - test_delete_milestone_date
+        """
+        # Create project and milestone.
+        project = Project(title="Test project")
+        project = self.project_controller.add(project)
+        milestone = Milestone(title="Test milestone", project=project)
+        milestone = self.controller.add(milestone)
+        # Add milestone date.
+        mdate = MilestoneDate(
+            date=date(2025, 10, 1),
+            entry_date=date(2025, 9, 28),
+            description="Test date"
+        )
+        mdate.milestone = milestone
+        mdate = self.controller.add_date(mdate)
+        return (milestone, mdate)
+
+    def test_add_milestone_date(self):
+        """
+        Test the add_milestone_date method of MilestoneController.
+
+        This test verifies:
+        - A milestone date can be created and stored in the database with the correct attributes.
+        - The returned object contains the expected values.
+
+        Steps:
+        1. Create a milestone and a milestone date.
+        2. Add the milestone date to the database and verify all attributes.
+        """
+        (milestone, mdate) = self.__create_milestone_and_date()
+        self.assertIsNotNone(mdate.id)
+        self.assertEqual(mdate.milestone_id, milestone.id)
+        self.assertEqual(mdate.date, date(2025, 10, 1))
+        self.assertEqual(mdate.entry_date, date(2025, 9, 28))
+        self.assertEqual(mdate.description, "Test date")
+
+    def test_update_milestone_date(self):
+        """
+        Test the update_milestone_date method of MilestoneController.
+
+        This test verifies:
+        - All fields of a milestone date can be updated.
+        - The previous version is stored in the history.
+        - Updating a non-existing milestone date raises a ValueError.
+
+        Steps:
+        1. Create a milestone, milestone date and second milestone.
+        2. Update all fields of the milestone date and verify the changes.
+        3. Check that the previous version is saved in the history.
+        4. Attempt to update a non-existing milestone date and expect a ValueError.
+        """
+        # Create milestone, milestone date and second milestone.
+        (milestone, mdate) = self.__create_milestone_and_date()
+        milestone2 = Milestone(title="Other milestone", project=milestone.project)
+        milestone2 = self.controller.add(milestone2)
+        # Update milestone date.
+        mdate.milestone = milestone2
+        mdate.date=date(2026, 10, 1)
+        mdate.entry_date=date(2026, 9, 28)
+        mdate.description="New test date"
+        mdate = self.controller.update_date(mdate)
+        # Ensure that updated values have been stored.
+        mdate2 = self.controller.get_date_by_id(mdate.id)
+        self.assertEqual(mdate2.milestone, milestone2)
+        self.assertEqual(mdate2.date, date(2026, 10, 1))
+        self.assertEqual(mdate2.entry_date, date(2026, 9, 28))
+        self.assertEqual(mdate2.description, "New test date")      
+        # Ensure the old version is stored in the milestone history.
+        old = mdate.versions[0]       
+        self.assertIsNotNone(old.id)
+        self.assertEqual(old.milestone_id, milestone.id)
+        self.assertEqual(old.date, date(2025, 10, 1))
+        self.assertEqual(old.entry_date, date(2025, 9, 28))
+        self.assertEqual(old.description, "Test date")
+        # Ensure updating a non-existing milestone date fails
+        non_existing = MilestoneDate(id=99999)
+        with self.assertRaises(ValueError):
+            self.controller.update(non_existing)
+
+    def test_delete_milestone_date(self):
+        """
+        Test the delete_milestone_date method of MilestoneController.
+
+        This test verifies:
+        - Deleted milestone date objects are removed from the database table.
+        - Deleting a non-existing milestone date raises a ValueError.
+
+        Steps:
+        1. Create a milestone and a milestone date.
+        2. Delete the milestone date and check it is removed from the table.
+        3. Attempt to delete a non-existing milestone date and expect a ValueError.
+        """
+        (milestone, mdate) = self.__create_milestone_and_date()
+        # Delete and check removal
+        deleted = self.controller.delete_date(mdate)
+        self.assertEqual(deleted, mdate)
+        result = self.session.query(MilestoneDate).filter_by(id=mdate.id).first()
+        self.assertIsNone(result)
+        # Ensure deleting a non-existing MilestoneDate fails
+        non_existing = MilestoneDate(id=99999)
+        with self.assertRaises(ValueError):
+            self.controller.delete_date(non_existing)
 
 
 if __name__ == "__main__":

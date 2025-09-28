@@ -2,7 +2,7 @@ import logging
 
 from datetime import datetime, timezone
 
-from plog.models.milestone import Milestone
+from plog.models.milestone import Milestone, MilestoneDate
 
 class MilestoneController:
     """
@@ -156,3 +156,60 @@ class MilestoneController:
             query = query.filter(Milestone.project_id == milestone.project_id)
         milestones = query.all()
         return {f"{m.title} (ID {m.id})": m.id for m in milestones}
+
+    def add_date(self, milestone_date):
+        """
+        Add a new milestone date to the database.
+
+        :param milestone_date: Milestone date instance to add
+        :return: The added milestone date instance (with assigned id)
+        """
+        now = datetime.now(timezone.utc)
+        milestone_date.created = now
+        milestone_date.last_modified = now
+        self.session.add(milestone_date)
+        self.session.commit()
+        return milestone_date
+
+    def update_date(self, milestone_date):
+        """
+        Update an existing milestone date in the database.
+
+        :param milestone_date: Milestone date instance with updated values
+        :raises ValueError: If the milestone date is not found
+        :return: The updated milestone date instance
+        """
+        db_date = self.session.query(MilestoneDate).filter_by(id=milestone_date.id).first()
+        if db_date is None:
+            raise ValueError("MilestoneDate not found.")
+        milestone_date.last_modified = datetime.now(timezone.utc)
+        self.session.commit()
+        return milestone_date
+
+    def delete_date(self, milestone_date):
+        """
+        Remove a milestone date from the database.
+
+        :param milestone_date: Milestone date instance to delete
+        :raises ValueError: If milestone date is not found in the database
+        :return: The deleted milestone date instance
+        """
+        db_date = self.session.query(MilestoneDate).filter_by(id=milestone_date.id).first()
+        if db_date is None:
+            raise ValueError("MilestoneDate not found.")
+        self.session.delete(milestone_date)
+        self.session.commit()
+        return milestone_date
+    
+    def get_date_by_id(self, id):
+        """
+        Return the milestone date with the given ID from the database.
+
+        :param id: ID of the milestone date
+        :raises ValueError: If no milestone date is found
+        :return: The milestone date instance
+        """
+        milestone_date = self.session.query(MilestoneDate).filter_by(id=id).first()
+        if milestone_date is None:
+            raise ValueError("MilestoneDate not found.")
+        return milestone_date

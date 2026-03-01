@@ -19,7 +19,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
-        }
+        },
         // Configuration for running of streamlit apps
         {
             "name": "Streamlit: Run App",

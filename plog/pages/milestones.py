@@ -116,14 +116,17 @@ st.set_page_config(layout="wide")
 st.title("Milestones")
 st.write("This page allows you to manage milestones for your current project.")
 
-milestones_table()
-add_clicked = st.button("Add")
-edit_clicked = st.button("Edit")
-delete_clicked = st.button("Delete")
+tabs = st.tabs(["Milestones", "Dates"])
 
-if add_clicked:
-    add_milestone()
-if edit_clicked:
-    edit_milestone()    
-if delete_clicked:
-    delete_milestone()
+with tabs[0]:
+    milestones_table()
+    add_clicked = st.button("Add")
+    edit_clicked = st.button("Edit")
+    delete_clicked = st.button("Delete")
+
+    if add_clicked:
+        add_milestone()
+    if edit_clicked:
+        edit_milestone()    
+    if delete_clicked:
+        delete_milestone()

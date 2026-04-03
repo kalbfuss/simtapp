@@ -6,4 +6,4 @@ The following coding standards shall be adhered to:
 - Follow the existing naming conventions.
 - Keep code simple and readable.
 - Attempt to re-use code but not at the cost of readability.
-- Write tests for all new features.
+- Write unit tests for all controllers.

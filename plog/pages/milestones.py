@@ -168,6 +168,30 @@ def dates_table():
         st.info("No milestone dates found.")
         return
     
+    # Build column configuration
+    column_config = {
+        'Milestone': st.column_config.TextColumn('Milestone', disabled=True),
+        'ID': st.column_config.NumberColumn('ID', disabled=True),
+        'Initial Baseline': st.column_config.DateColumn(
+            'Initial Baseline',
+            format='YYYY-MM-DD',
+            disabled=True
+        ),
+        'Latest Baseline': st.column_config.DateColumn(
+            'Latest Baseline',
+            format='YYYY-MM-DD',
+            disabled=True
+        ),
+    }
+    
+    # Add DateColumn config for all remaining columns
+    for col in df.columns:
+        if col not in column_config:
+            column_config[col] = st.column_config.DateColumn(
+                col,
+                format='YYYY-MM-DD'
+            )
+    
     # Use st.data_editor to display and edit the table
     edited_df = st.data_editor(
         df,
@@ -175,27 +199,98 @@ def dates_table():
         key=f"date_table_{st.session_state['dates_table_key']}",
         hide_index=True,
         on_change=lambda: setattr(st.session_state, 'dates_have_changed', True),
-        column_config={
-            'Milestone': st.column_config.TextColumn('Milestone', disabled=True),
-            'ID': st.column_config.NumberColumn('ID', disabled=True),
-            'Initial Baseline': st.column_config.TextColumn('Initial Baseline', disabled=True),
-            'Latest Baseline': st.column_config.TextColumn('Latest Baseline', disabled=True),
-        },
+        column_config=column_config,
     )
 
     return edited_df
 
+@st.dialog("Add Date Column")
 def dates_add_column():
     """
     Add a new date column to the table.
     """
-    st.info("Add Column functionality to be implemented")
+    st.write("Select an entry date for the new column:")
+    entry_date = st.date_input("Entry Date", value=pd.to_datetime("today").date(), format="YYYY-MM-DD")
+
+    if st.button("Add Column"):
+        # Load the current dates DataFrame
+        df = load_dates()
+
+        # Check if the column already exists
+        new_column_name = entry_date.strftime("%Y-%m-%d")
+        if new_column_name in df.columns:
+            st.warning(f"Column '{new_column_name}' already exists. Please select a different date.")
+            return
+
+        # Add a new column with the selected entry date as the header
+        df[new_column_name] = None
+
+        # Sort date columns in ascending order
+        protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
+        date_columns = [col for col in df.columns if col not in protected_columns]
+        date_columns_sorted = sorted(date_columns)
+        
+        # Reorder columns: protected columns first, then sorted date columns
+        column_order = protected_columns + date_columns_sorted
+        df = df[[col for col in column_order if col in df.columns]]
+
+        # Update the session state with the new DataFrame
+        st.session_state['dates'] = df
+        st.session_state['dates_table_key'] += 1
+        st.session_state['dates_have_changed'] = True
+
+        st.success(f"Column '{new_column_name}' added successfully!")
+        st.rerun()
     
+@st.dialog("Delete Date Column")
 def dates_delete_column():
     """
     Delete an existing date column from the table.
     """
-    st.info("Delete Column functionality to be implemented")
+    # Load the current DataFrame
+    df = load_dates()
+    
+    # Get all available date columns (exclude protected columns)
+    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
+    available_columns = [col for col in df.columns if col not in protected_columns]
+    
+    # Check if there are any columns to delete
+    if not available_columns:
+        st.error("No date columns available to delete.")
+        return
+    
+    # Display selection of entry dates
+    st.write("Select an entry date (column) to delete:")
+    selected_column = st.selectbox(
+        "Entry Date",
+        available_columns,
+        key="delete_col_select"
+    )
+    
+    # Show confirmation
+    st.warning(f"Are you sure you want to delete the column '{selected_column}'?")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        confirm = st.button("Yes, delete column", key="confirm_delete_col")
+    with col2:
+        cancel = st.button("Cancel", key="cancel_delete_col")
+
+    if confirm:
+        # Delete the column from the DataFrame
+        df.drop(columns=[selected_column], inplace=True)
+        
+        # Update the session state
+        st.session_state['dates'] = df
+        st.session_state['dates_table_key'] += 1
+        st.session_state['dates_have_changed'] = True
+        
+        st.success(f"Column '{selected_column}' deleted successfully!")
+        st.rerun()
+
+    if cancel:
+        st.info("Deletion cancelled.")
+        st.rerun()
 
 def dates_save_changes(df):
     # Load the original data for comparison
@@ -237,11 +332,16 @@ def dates_save_changes(df):
 @st.dialog("Confirm Discard Changes")
 def dates_discard_changes():
     st.warning("Are you sure you want to discard all changes?")
-    confirm = st.button("Yes, discard changes", key="confirm_discard")
-    cancel = st.button("Cancel", key="cancel_discard")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        confirm = st.button("Yes, discard changes", key="confirm_discard")
+    with col2:
+        cancel = st.button("Cancel", key="cancel_discard")
+
     if confirm:
         load_dates(force=True)
-        st.info("All changes discarded.")
+        st.success("All changes discarded.")
         st.rerun()
     elif cancel:
         st.info("Discard cancelled.")

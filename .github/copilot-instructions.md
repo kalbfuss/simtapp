@@ -51,15 +51,13 @@ This document outlines the best practices to be followed across all files in the
 - **Views**: Place in `./plog/pages`
 - **Tests**: Place in `./tests`
 
-### Interface design
+### Interface Design
+- **Tables**: Use `st.aggrid`. Do **not** use `st.dataframe`. Limit the number of displayed rows to `NUM_ROWS` (default value: 20). Use scroll bar where necessary.
+- **Toolbars**: Use `st_segmented_control` (https://docs.streamlit.io/develop/api-reference/widgets/st.segmented_control). Do **not** use buttons. Add at the top and bottom of a page.
+- Minimize page reloads.
 
-The user interface is created with Streamlit. The following rules must be
-respected when creating the interface:
-
-- **Tables**: Use `st.aggrid`. Limit the number of displayed rows to `NUM_ROWS`
-(default value: 20). Use scroll bar where necessary.
-- **Toolbars**: Use `st_segmented_control` (https://docs.streamlit.io/develop/api-reference/widgets/st.segmented_control). Do **not** use buttons. Add at top and bottom of the page.
-- Miminize page reloads.
+### Commands
+- Always activate virtual environment prior to running any command: `source .venv/bin/activate`
 
 ## Tools and Libraries
 - **Streamlit**: For building the user interface.

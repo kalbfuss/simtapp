@@ -56,8 +56,8 @@ class MilestoneDate(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     milestone_id = Column(Integer, ForeignKey("milestones.id"), nullable=False)
-    date = Column(Date, nullable=True)
-    entry_date = Column(Date, nullable=True)
+    date = Column(Date, nullable=False)
+    entry_date = Column(Date, nullable=False)
     description = Column(Text, default="")
     created = Column(DateTime, nullable=False)
     last_modified = Column(DateTime, nullable=False)

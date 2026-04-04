@@ -1,5 +1,3 @@
-import logging
-
 from datetime import datetime, timezone
 
 from plog.models.milestone import Milestone, MilestoneDate
@@ -212,4 +210,18 @@ class MilestoneController:
         milestone_date = self.session.query(MilestoneDate).filter_by(id=id).first()
         if milestone_date is None:
             raise ValueError("MilestoneDate not found.")
+        return milestone_date
+
+    def get_date_by_milestone_and_entry_date(self, milestone_id, entry_date):
+        """
+        Retrieve a MilestoneDate instance by milestone_id and entry_date.
+
+        :param milestone_id: ID of the milestone
+        :param entry_date: Entry date of the milestone date
+        :return: MilestoneDate instance or None if not found
+        """
+        milestone_date = self.session.query(MilestoneDate).filter_by(
+            milestone_id=milestone_id,
+            entry_date=entry_date
+        ).first()
         return milestone_date

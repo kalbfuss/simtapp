@@ -513,5 +513,36 @@ class TestMilestoneController(unittest.TestCase):
             self.controller.delete_date(non_existing)
 
 
+    def test_get_date_by_milestone_and_entry_date(self):
+        """
+        Test the get_date_by_milestone_and_entry_date method of MilestoneController.
+
+        This test verifies:
+        - A milestone date can be retrieved by milestone_id and entry_date.
+        - The returned object contains the expected values.
+        - None is returned if no milestone date matches the criteria.
+
+        Steps:
+        1. Create a milestone and a milestone date.
+        2. Retrieve the milestone date by milestone_id and entry_date and verify all attributes.
+        3. Attempt to retrieve a non-existing milestone date and expect None.
+        """
+        # Create milestone and milestone date.
+        (milestone, mdate) = self.__create_milestone_and_date()
+        
+        # Retrieve the milestone date by milestone_id and entry_date.
+        fetched = self.controller.get_date_by_milestone_and_entry_date(milestone.id, mdate.entry_date)
+        self.assertIsNotNone(fetched)
+        self.assertEqual(fetched.id, mdate.id)
+        self.assertEqual(fetched.milestone_id, milestone.id)
+        self.assertEqual(fetched.date, date(2025, 10, 1))
+        self.assertEqual(fetched.entry_date, date(2025, 9, 28))
+        self.assertEqual(fetched.description, "Test date")
+        
+        # Attempt to retrieve a non-existing milestone date.
+        non_existing = self.controller.get_date_by_milestone_and_entry_date(milestone.id, date(2025, 1, 1))
+        self.assertIsNone(non_existing)
+
+
 if __name__ == "__main__":
     unittest.main()

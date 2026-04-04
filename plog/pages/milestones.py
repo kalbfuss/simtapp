@@ -3,14 +3,17 @@ This page displays all projects in the database using streamlit-aggrid.
 All code and documentation must be in English.
 """
 
+import logging
 import pandas as pd
 import streamlit as st
 
+from pandas.testing import assert_frame_equal
+
 from plog.common import create_form, create_table
-from plog.models.milestone import Milestone
+from plog.models.milestone import Milestone, MilestoneDate
 from plog.controllers.milestone_controller import MilestoneController
 
-#from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 
 # Get the SQLAlchemy session from Streamlit session state
@@ -22,7 +25,7 @@ def milestones_table():
     """
     Show a a table with all milestones for the current project.
     """
-    # Get all projects from database.
+    # Get all milestones for the current project from the database.
     milestones = controller.get_all(project=project)
     if not milestones:
         st.info("No Milestones found.")
@@ -111,6 +114,139 @@ def delete_milestone():
         st.info("Deletion cancelled.")
         st.rerun()
 
+def load_dates(force=False):
+    """
+    Load milestone dates for the current project.
+    """
+    # Only load milestone dates if not yet done.
+    if 'dates' in st.session_state and not force:
+        return st.session_state['dates']
+
+    # Get all milestones from the database.
+    milestones = controller.get_all(project=project)
+    if not milestones:
+        return pd.DataFrame()
+
+    # Prepare data for the table
+    data = []
+    for milestone in milestones:
+        row = {
+            'Milestone': milestone.title,
+            'ID': milestone.id,
+            'Initial Baseline': milestone.initial_baseline_date.strftime("%Y-%m-%d") if milestone.initial_baseline_date else None,
+            'Latest Baseline': milestone.latest_baseline_date.strftime("%Y-%m-%d") if milestone.latest_baseline_date else None,
+        }
+        # Add milestone dates
+        for date_entry in milestone.dates:
+            row[f"{date_entry.entry_date.strftime('%Y-%m-%d')}"] = date_entry.date
+        data.append(row)
+    
+    # Create a data frame for the table
+    df = pd.DataFrame(data)
+
+    # Save the data frame in the session state
+    st.session_state['dates'] = df
+    # Update the dates table key in the session state to force a re-render of 
+    # the dates table.
+    if not 'dates_table_key' in st.session_state:
+        st.session_state['dates_table_key'] = 0
+    else:
+        st.session_state['dates_table_key'] += 1
+    # Clear the dates_have_changed flag
+    st.session_state['dates_have_changed'] = False
+    
+    return df
+
+def dates_table():
+    """
+    Show a table with all milestone dates for the current project.
+    """
+    # Load milestone dates if not yet done.
+    df = load_dates()
+
+    if df.empty:
+        st.info("No milestone dates found.")
+        return
+    
+    # Use st.data_editor to display and edit the table
+    edited_df = st.data_editor(
+        df,
+        width='stretch',
+        key=f"date_table_{st.session_state['dates_table_key']}",
+        hide_index=True,
+        on_change=lambda: setattr(st.session_state, 'dates_have_changed', True),
+        column_config={
+            'Milestone': st.column_config.TextColumn('Milestone', disabled=True),
+            'ID': st.column_config.NumberColumn('ID', disabled=True),
+            'Initial Baseline': st.column_config.TextColumn('Initial Baseline', disabled=True),
+            'Latest Baseline': st.column_config.TextColumn('Latest Baseline', disabled=True),
+        },
+    )
+
+    return edited_df
+
+def dates_add_column():
+    """
+    Add a new date column to the table.
+    """
+    st.info("Add Column functionality to be implemented")
+    
+def dates_delete_column():
+    """
+    Delete an existing date column from the table.
+    """
+    st.info("Delete Column functionality to be implemented")
+
+def dates_save_changes(df):
+    # Load the original data for comparison
+    original_df = load_dates()
+    
+    # Iterate over the rows in the DataFrame to update the milestone dates
+    for _, row in df.iterrows():
+        milestone_id = row['ID']
+        milestone = controller.get_by_id(milestone_id)
+        
+        # Iterate over the columns representing dates
+        for column in df.columns:
+            if column not in ['Milestone', 'Description', 'ID', 'Initial Baseline', 'Latest Baseline']:
+                entry_date = pd.to_datetime(column).date()
+                new_date_value = pd.to_datetime(row[column]).date() if pd.notna(row[column]) else None
+                
+                # Get the original value for comparison
+                original_row = original_df[original_df['ID'] == milestone_id].iloc[0]
+                original_date_value = pd.to_datetime(original_row[column]).date() if pd.notna(original_row[column]) else None
+                
+                # Only update if the value has changed
+                if new_date_value != original_date_value:
+                    date_entry = controller.get_date_by_milestone_and_entry_date(milestone_id, entry_date)
+                    if date_entry:
+                        date_entry.date = new_date_value
+                        controller.update_date(date_entry)
+                    else:
+                        new_date = MilestoneDate(
+                            milestone_id=milestone_id,
+                            entry_date=entry_date,
+                            date=new_date_value
+                        )
+                        controller.add_date(new_date)
+    
+    st.session_state['dates_have_changed'] = False
+    st.success("Changes saved successfully!")
+    st.rerun()
+
+@st.dialog("Confirm Discard Changes")
+def dates_discard_changes():
+    st.warning("Are you sure you want to discard all changes?")
+    confirm = st.button("Yes, discard changes", key="confirm_discard")
+    cancel = st.button("Cancel", key="cancel_discard")
+    if confirm:
+        load_dates(force=True)
+        st.info("All changes discarded.")
+        st.rerun()
+    elif cancel:
+        st.info("Discard cancelled.")
+        st.rerun()
+
 # Start page code.
 st.set_page_config(layout="wide")
 st.title("Milestones")
@@ -120,13 +256,20 @@ tabs = st.tabs(["Milestones", "Dates"])
 
 with tabs[0]:
     milestones_table()
-    add_clicked = st.button("Add")
-    edit_clicked = st.button("Edit")
-    delete_clicked = st.button("Delete")
-
-    if add_clicked:
+    if st.button("Add"):
         add_milestone()
-    if edit_clicked:
+    if st.button("Edit"):
         edit_milestone()    
-    if delete_clicked:
+    if st.button("Delete"):
         delete_milestone()
+
+with tabs[1]:
+    df = dates_table()
+    if st.button("Add Column"):
+        dates_add_column()
+    if st.button("Delete Column"):
+        dates_delete_column()
+    if st.button("Save Changes", disabled=not st.session_state['dates_have_changed']):
+        dates_save_changes(df)
+    if st.button("Discard Changes", disabled=not st.session_state['dates_have_changed']):
+        dates_discard_changes()

@@ -55,7 +55,6 @@ def shutdown():
 atexit.register(shutdown)
 
 
-
 def create_table(objects, columns, parent_column=None):
     """
     Display a table of SQLAlchemy model instances using st_aggrid.

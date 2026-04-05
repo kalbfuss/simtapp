@@ -21,6 +21,7 @@ session = st.session_state['session']
 project = st.session_state['project']
 controller = MilestoneController(session)
 
+
 def milestones_table():
     """
     Show a a table with all milestones for the current project.
@@ -30,6 +31,7 @@ def milestones_table():
     if not milestones:
         st.info("No Milestones found.")
         return
+
     # Define columns for display.
     columns = {
         'title': 'Title',
@@ -40,11 +42,13 @@ def milestones_table():
         'description': 'Description',
     }
     response = create_table(milestones, columns, parent_column='parent_id')
+
     # Get the selected row (if any).
     selected_rows = response.get('selected_rows', None)
     if selected_rows is not None:
         st.session_state['selected_row'] = selected_rows.iloc[0]
-    
+
+
 @st.dialog("Add Milestone")
 def add_milestone():
     """
@@ -66,6 +70,7 @@ def add_milestone():
         milestone.latest_baseline_date = milestone.initial_baseline_date
         controller.add(milestone)
         st.rerun()
+
 
 @st.dialog("Edit Milestone")
 def edit_milestone():
@@ -92,6 +97,7 @@ def edit_milestone():
         controller.update(milestone)
         st.rerun()
 
+
 @st.dialog("Confirm Deletion")
 def delete_milestone():
     """
@@ -114,9 +120,15 @@ def delete_milestone():
         st.info("Deletion cancelled.")
         st.rerun()
 
+
 def load_dates(force=False):
     """
     Load milestone dates for the current project.
+
+    :param force: If True, forces a reload of the milestone dates from the 
+        database, even if they are already loaded in the session state.
+    :return: A data frame containing all milestone dates for the current project.
+    :rtype: pd.DataFrame
     """
     # Only load milestone dates if not yet done.
     if 'dates' in st.session_state and not force:
@@ -140,22 +152,16 @@ def load_dates(force=False):
         for date_entry in milestone.dates:
             row[f"{date_entry.entry_date.strftime('%Y-%m-%d')}"] = date_entry.date
         data.append(row)
-    
-    # Create a data frame for the table
-    df = pd.DataFrame(data)
 
-    # Save the data frame in the session state
+    # Create a data frame for the dates table and save it in the session state.
+    df = pd.DataFrame(data)
     st.session_state['dates'] = df
-    # Update the dates table key in the session state to force a re-render of 
-    # the dates table.
-    if not 'dates_table_key' in st.session_state:
-        st.session_state['dates_table_key'] = 0
-    else:
-        st.session_state['dates_table_key'] += 1
-    # Clear the dates_have_changed flag
     st.session_state['dates_have_changed'] = False
-    
+    # Force refresh of the dates table to ensure it displays the newly loaded data
+    refresh_dates_table()
+
     return df
+
 
 def dates_table():
     """
@@ -163,11 +169,12 @@ def dates_table():
     """
     # Load milestone dates if not yet done.
     df = load_dates()
-
+    
+    # Stop here if no milestone dates are found.
     if df.empty:
         st.info("No milestone dates found.")
         return
-    
+
     # Build column configuration
     column_config = {
         'Milestone': st.column_config.TextColumn('Milestone', disabled=True),
@@ -191,18 +198,38 @@ def dates_table():
                 col,
                 format='YYYY-MM-DD'
             )
-    
+
     # Use st.data_editor to display and edit the table
     edited_df = st.data_editor(
         df,
         width='stretch',
-        key=f"date_table_{st.session_state['dates_table_key']}",
+        key=f"date_table_{st.session_state['dates_table_counter']}",
         hide_index=True,
         on_change=lambda: setattr(st.session_state, 'dates_have_changed', True),
         column_config=column_config,
     )
-
+    
     return edited_df
+
+
+def refresh_dates_table():
+    """Force a refresh of the dates table by reloading the data and updating 
+    the session state.
+    """
+    # Initialize table counter if not yet in session state
+    if not 'dates_table_counter' in st.session_state:
+        st.session_state['dates_table_counter'] = 0
+        return
+
+    # Attempt to delete current session state
+    key=f"date_table_{st.session_state['dates_table_counter']}"
+    if key in st.session_state:
+        del st.session_state[key]
+
+    # Update the session state
+    st.session_state['dates_table_counter'] += 1
+    st.session_state['dates_have_changed'] = True
+
 
 @st.dialog("Add Date Column")
 def dates_add_column():
@@ -234,14 +261,14 @@ def dates_add_column():
         column_order = protected_columns + date_columns_sorted
         df = df[[col for col in column_order if col in df.columns]]
 
-        # Update the session state with the new DataFrame
+        # Update the session state with the new DataFrame and refresh the table
         st.session_state['dates'] = df
-        st.session_state['dates_table_key'] += 1
-        st.session_state['dates_have_changed'] = True
+        refresh_dates_table()
 
         st.success(f"Column '{new_column_name}' added successfully!")
         st.rerun()
-    
+
+
 @st.dialog("Delete Date Column")
 def dates_delete_column():
     """
@@ -280,10 +307,11 @@ def dates_delete_column():
         # Delete the column from the DataFrame
         df.drop(columns=[selected_column], inplace=True)
         
-        # Update the session state
+        # Update the session state with the modified DataFrame and refresh the 
+        # table
         st.session_state['dates'] = df
-        st.session_state['dates_table_key'] += 1
         st.session_state['dates_have_changed'] = True
+        refresh_dates_table()
         
         st.success(f"Column '{selected_column}' deleted successfully!")
         st.rerun()
@@ -291,6 +319,7 @@ def dates_delete_column():
     if cancel:
         st.info("Deletion cancelled.")
         st.rerun()
+
 
 def dates_save_changes(df):
     # Load the original data for comparison
@@ -329,6 +358,7 @@ def dates_save_changes(df):
     st.success("Changes saved successfully!")
     st.rerun()
 
+
 @st.dialog("Confirm Discard Changes")
 def dates_discard_changes():
     st.warning("Are you sure you want to discard all changes?")
@@ -347,6 +377,7 @@ def dates_discard_changes():
         st.info("Discard cancelled.")
         st.rerun()
 
+
 # Start page code.
 st.set_page_config(layout="wide")
 st.title("Milestones")
@@ -354,6 +385,7 @@ st.write("This page allows you to manage milestones for your current project.")
 
 tabs = st.tabs(["Milestones", "Dates"])
 
+# Milestones tab
 with tabs[0]:
     milestones_table()
     if st.button("Add"):
@@ -363,6 +395,7 @@ with tabs[0]:
     if st.button("Delete"):
         delete_milestone()
 
+# Dates tab
 with tabs[1]:
     df = dates_table()
     if st.button("Add Column"):

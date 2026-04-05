@@ -622,7 +622,37 @@ def build_trend_chart():
         showlegend=False,
         name='Impossible region',
     ))
-    
+
+    # Add vertical marker for "Today" if it falls within the date range
+    today = datetime.today().date()
+    if date_range_start <= today <= date_range_end:
+        fig.add_trace(go.Scatter(
+            x=[today, today],
+            y=[date_range_start, date_range_end],
+            mode='lines',
+            line=dict(color='rgba(0, 0, 0, 0.5)', width=2, dash='dot'),
+            hovertemplate='<b>Today</b><br>Date: %{x|%Y-%m-%d}<extra></extra>',
+            showlegend=False,
+        ))
+        
+        # Add label for the "Today" marker
+        fig.add_annotation(
+            x=today,
+            y=date_range_end,
+            xref='x',
+            yref='y',
+            text='Today',
+            showarrow=True,
+            arrowhead=1,
+            ax=0,
+            ay=-40,
+            font=dict(size=12, color='rgba(0, 0, 0, 0.7)'),
+            bgcolor='rgba(255, 255, 255, 0.7)',
+            bordercolor='rgba(0, 0, 0, 0.3)',
+            borderwidth=1,
+            borderpad=4,
+        )
+
     # Get colors, line styles, and symbols for all milestones
     num_milestones = len(trace_data)
     colors = get_colors(num_milestones)
@@ -681,7 +711,6 @@ def build_trend_chart():
         ),
         plot_bgcolor='rgba(240, 240, 240, 0.5)',
         paper_bgcolor='white',
-        margin=dict(l=80, r=220, t=40, b=80),
         height=CHART_CONFIG['height'],
         font=dict(size=CHART_CONFIG['font_size']),
     )
@@ -692,7 +721,7 @@ def build_trend_chart():
 # Start page code.
 st.set_page_config(layout="wide")
 st.title("Milestones")
-st.write("This page allows you to manage milestones for your current project.")
+#st.write("This page allows you to manage milestones for your current project.")
 
 tabs = st.tabs(["Milestones", "Dates", "Trend"])
 

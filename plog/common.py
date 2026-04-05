@@ -59,8 +59,8 @@ def create_table(objects, columns, parent_column=None):
     """
     Display a table of SQLAlchemy model instances using st_aggrid.
 
-    :param instances: List of SQLAlchemy model instances to display.
-    :type instances: list[object]
+    :param objects: List of SQLAlchemy model instances to display.
+    :type objects: list[object]
     :param columns: Dictionary mapping column names to labels for display.
     :type columns: dict[str, str]
     :param parent_column: Optional column name for hierarchical display.

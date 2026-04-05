@@ -86,10 +86,13 @@ def dates_table():
 
     # Configure AgGrid
     gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_grid_options(
+        autoSizeStrategy={"type": "fitCellContents"},
+    )
     gb.configure_pagination(enabled=True)
     gb.configure_default_column(
         editable=False,
-        type=['leftAligned'],
+        suppressMovable=True,
     )
     # Configure the date columns
     protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
@@ -114,9 +117,6 @@ def dates_table():
         width='100%',
         enable_enterprise_modules=True,
         allow_unsafe_jscode=False,
-                autoSizeStrategy={
-            "type": "fitGridWidth",
-        },
    )
 
     # Delete column with unique id added by AgGrid prior to comparison

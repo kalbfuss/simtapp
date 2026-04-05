@@ -3,8 +3,10 @@ This module contains the code related to the dates tab.
 """
 
 import pandas as pd
+from pandas.testing import assert_frame_equal
 import streamlit as st
-from datetime import datetime
+from datetime import date
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from plog.models.milestone import MilestoneDate
 from plog.controllers.milestone_controller import MilestoneController
 
@@ -36,17 +38,19 @@ def load_dates(force=False):
     for milestone in milestones:
         row = {
             'Milestone': milestone.title,
-            'ID': milestone.id,
-            'Initial Baseline': milestone.initial_baseline_date.strftime("%Y-%m-%d") if milestone.initial_baseline_date else None,
-            'Latest Baseline': milestone.latest_baseline_date.strftime("%Y-%m-%d") if milestone.latest_baseline_date else None,
+            'ID': int(milestone.id),
+            'Initial Baseline': milestone.initial_baseline_date,
+            'Latest Baseline': milestone.latest_baseline_date,
         }
         # Add milestone dates
         for date_entry in milestone.dates:
-            row[f"{date_entry.entry_date.strftime('%Y-%m-%d')}"] = date_entry.date
+            row[f"{date_entry.entry_date.strftime('%Y-%m-%d')}"] = date_entry.date.strftime('%Y-%m-%d')
         data.append(row)
 
     # Create a data frame for the dates table
     df = pd.DataFrame(data)
+
+    df['ID'] = df['ID'].astype('Int64')
 
     # Identify date columns (excluding protected columns)
     protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
@@ -80,41 +84,40 @@ def dates_table():
         st.info("No milestone dates found.")
         return
 
-    # Build column configuration
-    column_config = {
-        'Milestone': st.column_config.TextColumn('Milestone', disabled=True),
-        'ID': st.column_config.NumberColumn('ID', disabled=True),
-        'Initial Baseline': st.column_config.DateColumn(
-            'Initial Baseline',
-            format='YYYY-MM-DD',
-            disabled=True
-        ),
-        'Latest Baseline': st.column_config.DateColumn(
-            'Latest Baseline',
-            format='YYYY-MM-DD',
-            disabled=True
-        ),
-    }
-
-    # Add DateColumn config for all remaining columns
+    # Configure AgGrid
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_pagination(enabled=True)
+    gb.configure_default_column(resizable=True, filterable=True, sortable=True)
+    
+    # Configure the date columns
+    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
     for col in df.columns:
-        if col not in column_config:
-            column_config[col] = st.column_config.DateColumn(
-                col,
-                format='YYYY-MM-DD'
+        if col not in protected_columns:
+            gb.configure_column(
+                col, 
+                editable=True,
             )
+    
+    grid_options = gb.build()
 
-    # Use st.data_editor to display and edit the table
-    edited_df = st.data_editor(
+    # Display the table using AgGrid
+    result = AgGrid(
         df,
-        width='stretch',
+        gridOptions=grid_options,
+        height=400,
+        width='100%',
+        enable_enterprise_modules=True,
+        allow_unsafe_jscode=True,
         key=f"date_table_{st.session_state['dates_table_counter']}",
-        hide_index=True,
-        on_change=lambda: setattr(st.session_state, 'dates_have_changed', True),
-        column_config=column_config,
     )
 
-    return edited_df
+    # Delete column with unique id added by AgGrid prior to comparison
+    df.drop(columns="::auto_unique_id::", inplace=True)
+    # Compare the contents of the DataFrames and flag any changes
+    if not result["data"].equals(df):
+        st.session_state['dates_have_changed'] = True
+    
+    return result
 
 
 def refresh_dates_table():

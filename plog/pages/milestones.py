@@ -23,6 +23,17 @@ session = st.session_state['session']
 project = st.session_state['project']
 controller = MilestoneController(session)
 
+# Centralized configuration for chart settings
+CHART_CONFIG = {
+    'font_size': 16,
+    'title_font_size': 20,
+    'axis_title_font_size': 20,
+    'axis_label_font_size': 16,
+    'legend_font_size': 16,
+    'marker_size': 10,
+    'height': 600,
+}
+
 
 def milestones_table():
     """
@@ -418,6 +429,73 @@ def get_colors(count):
     return colors
 
 
+def get_line_styles(count):
+    """
+    Generate a list of distinct line styles for data visualization.
+
+    :param count: The number of distinct line styles to generate.
+    :return: A list of line style strings.
+    :rtype: list
+    """
+    # Use a set of distinct line styles
+    line_styles = [
+        'solid',
+        'dash',
+        'dot',
+        'dashdot',
+        'longdash',
+        'longdashdot',
+    ]
+    
+    # Repeat the line styles if more styles are needed
+    if count <= len(line_styles):
+        return line_styles[:count]
+    
+    # For more than 6 line styles, cycle through the styles
+    styles = []
+    for i in range(count):
+        styles.append(line_styles[i % len(line_styles)])
+    return styles
+
+
+def get_symbols(count):
+    """
+    Generate a list of distinct symbols for data visualization.
+
+    :param count: The number of distinct symbols to generate.
+    :return: A list of symbol strings.
+    :rtype: list
+    """
+    # Use a set of distinct symbols
+    symbols = [
+        'circle',
+        'square',
+        'diamond',
+        'cross',
+        'x',
+        'triangle-up',
+        'triangle-down',
+        'pentagon',
+        'hexagon',
+        'octagon',
+        'star',
+        'star-diamond',
+        'star-triangle-up',
+        'star-triangle-down',
+        'star-square',
+    ]
+    
+    # Repeat the symbols if more symbols are needed
+    if count <= len(symbols):
+        return symbols[:count]
+    
+    # For more than 15 symbols, cycle through the symbols
+    symbol_list = []
+    for i in range(count):
+        symbol_list.append(symbols[i % len(symbols)])
+    return symbol_list
+
+
 def prepare_trend_data():
     """
     Transform the milestone dates DataFrame into trace-ready format for Plotly.
@@ -449,6 +527,10 @@ def prepare_trend_data():
     for _, row in df.iterrows():
         milestone_id = int(row['ID'])
         milestone_name = row['Milestone']
+        
+        # Skip if milestone is not selected
+        if 'selected_milestone_ids' in st.session_state and milestone_id not in st.session_state.selected_milestone_ids:
+            continue
         
         # Collect target dates for this milestone across all entry dates
         target_dates = []
@@ -513,15 +595,20 @@ def build_trend_chart():
     date_range_start = min(min_date, min_date_all)
     date_range_end = max(max_date, max_date_all)
     
+    # Extend the range slightly beyond the data range (+/-5%)
+    from datetime import timedelta
+    date_range_duration = date_range_end - date_range_start
+    date_range_start = date_range_start - timedelta(days=date_range_duration.days * 0.05)
+    date_range_end = date_range_end + timedelta(days=date_range_duration.days * 0.05)
+    
     # Add diagonal reference line (no change: entry_date = target_date)
     fig.add_trace(go.Scatter(
         x=[date_range_start, date_range_end],
         y=[date_range_start, date_range_end],
         mode='lines',
         line=dict(color='rgba(200, 200, 200, 0.8)', width=2, dash='dash'),
-        name='No change',
         hovertemplate='<b>No change</b><br>Entry Date: %{x|%Y-%m-%d}<br>Target Date: %{y|%Y-%m-%d}<extra></extra>',
-        showlegend=True,
+        showlegend=False,
     ))
     
     # Add gray fill area below the diagonal
@@ -536,9 +623,11 @@ def build_trend_chart():
         name='Impossible region',
     ))
     
-    # Get colors for all milestones
+    # Get colors, line styles, and symbols for all milestones
     num_milestones = len(trace_data)
     colors = get_colors(num_milestones)
+    line_styles = get_line_styles(num_milestones)
+    symbols = get_symbols(num_milestones)
     
     # Add a trace for each milestone
     for idx, (milestone_id, data) in enumerate(sorted(trace_data.items())):
@@ -555,23 +644,28 @@ def build_trend_chart():
             y=y_vals,
             mode='lines+markers',
             name=data['name'],
-            line=dict(color=colors[idx], width=2),
-            marker=dict(size=6, color=colors[idx]),
+            line=dict(color=colors[idx], width=2, dash=line_styles[idx]),
+            marker=dict(size=CHART_CONFIG['marker_size'], symbol=symbols[idx], color=colors[idx]),
             hovertemplate='<b>%{fullData.name}</b><br>Entry Date: %{x|%Y-%m-%d}<br>Target Date: %{y|%Y-%m-%d}<extra></extra>',
         ))
     
     # Update layout
     fig.update_layout(
-        title='Milestone Target Date Trends',
         xaxis_title='Entry Date',
         yaxis_title='Target Date',
         xaxis=dict(
             type='date',
             tickformat='%Y-%m-%d',
+            title_font_size=CHART_CONFIG['axis_title_font_size'],
+            tickfont=dict(size=CHART_CONFIG['axis_label_font_size']),
+            range=[date_range_start, date_range_end],
         ),
         yaxis=dict(
             type='date',
             tickformat='%Y-%m-%d',
+            title_font_size=CHART_CONFIG['axis_title_font_size'],
+            tickfont=dict(size=CHART_CONFIG['axis_label_font_size']),
+            range=[date_range_start, date_range_end],
         ),
         hovermode='x unified',
         dragmode='zoom',
@@ -583,11 +677,13 @@ def build_trend_chart():
             bgcolor='rgba(255, 255, 255, 0.95)',
             bordercolor='rgba(0, 0, 0, 0.2)',
             borderwidth=1,
+            font_size=CHART_CONFIG['legend_font_size'],
         ),
         plot_bgcolor='rgba(240, 240, 240, 0.5)',
         paper_bgcolor='white',
-        margin=dict(l=80, r=220, t=80, b=80),
-        height=500,
+        margin=dict(l=80, r=220, t=40, b=80),
+        height=CHART_CONFIG['height'],
+        font=dict(size=CHART_CONFIG['font_size']),
     )
     
     return fig
@@ -624,5 +720,18 @@ with tabs[1]:
 
 # Trend tab
 with tabs[2]:
+    # Milestone selection for the Trend tab
+    milestones = controller.get_all(project=project)
+    milestone_options = {milestone.title: milestone.id for milestone in milestones}
+    
+    selected_milestone_names = st.multiselect(
+        "Select Milestones to Display",
+        options=list(milestone_options.keys()),
+        default=list(milestone_options.keys())
+    )
+    
+    st.session_state.selected_milestone_ids = [milestone_options[name] for name in selected_milestone_names]
+    
+    # Build and display the trend chart
     fig = build_trend_chart()
     st.plotly_chart(fig, use_container_width=True)

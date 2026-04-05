@@ -166,8 +166,21 @@ def load_dates(force=False):
             row[f"{date_entry.entry_date.strftime('%Y-%m-%d')}"] = date_entry.date
         data.append(row)
 
-    # Create a data frame for the dates table and save it in the session state.
+    # Create a data frame for the dates table
     df = pd.DataFrame(data)
+    
+    # Identify date columns (excluding protected columns)
+    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
+    date_columns = [col for col in df.columns if col not in protected_columns]
+    
+    # Sort date columns in ascending order
+    date_columns_sorted = sorted(date_columns)
+    
+    # Reorder columns: protected columns first, then sorted date columns
+    column_order = protected_columns + date_columns_sorted
+    df = df[[col for col in column_order if col in df.columns]]
+    
+    # Save the sorted data frame in the session state
     st.session_state['dates'] = df
     st.session_state['dates_have_changed'] = False
     # Force refresh of the dates table to ensure it displays the newly loaded data

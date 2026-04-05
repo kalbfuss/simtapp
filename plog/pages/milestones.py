@@ -59,13 +59,13 @@ with tabs[0]:
 # Dates tab
 with tabs[1]:
     result = dates_table()
-    st.session_state['dates'] = result["data"]
+#    st.session_state['dates'] = result['data']
     if st.button("Add Column"):
         dates_add_column()
     if st.button("Delete Column"):
         dates_delete_column()
     if st.button("Save Changes", disabled=not st.session_state['dates_have_changed']):
-        dates_save_changes(df)
+        dates_save_changes(result['data'])
     if st.button("Discard Changes", disabled=not st.session_state['dates_have_changed']):
         dates_discard_changes()
 
@@ -84,5 +84,5 @@ with tabs[2]:
     st.session_state.selected_milestone_ids = [milestone_options[name] for name in selected_milestone_names]
 
     # Build and display the trend chart
-    #fig = build_trend_chart()
-    #st.plotly_chart(fig, use_container_width=True)
+    fig = build_trend_chart()
+    st.plotly_chart(fig, use_container_width=True)

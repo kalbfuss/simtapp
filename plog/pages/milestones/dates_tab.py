@@ -11,6 +11,12 @@ from plog.models.milestone import MilestoneDate
 from plog.controllers.milestone_controller import MilestoneController
 
 
+# Get the SQLAlchemy session from Streamlit session state
+session = st.session_state['session']
+project = st.session_state['project']
+controller = MilestoneController(session)
+
+
 def load_dates(force=False):
     """
     Load milestone dates for the current project.
@@ -20,10 +26,6 @@ def load_dates(force=False):
     :return: A data frame containing all milestone dates for the current project.
     :rtype: pd.DataFrame
     """
-    session = st.session_state['session']
-    project = st.session_state['project']
-    controller = MilestoneController(session)
-
     # Only load milestone dates if not yet done.
     if 'dates' in st.session_state and not force:
         return st.session_state['dates']
@@ -49,8 +51,6 @@ def load_dates(force=False):
 
     # Create a data frame for the dates table
     df = pd.DataFrame(data)
-
-    df['ID'] = df['ID'].astype('Int64')
 
     # Identify date columns (excluding protected columns)
     protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
@@ -87,29 +87,37 @@ def dates_table():
     # Configure AgGrid
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_pagination(enabled=True)
-    gb.configure_default_column(resizable=True, filterable=True, sortable=True)
-    
+    gb.configure_default_column(
+        editable=False,
+        type=['leftAligned'],
+    )
     # Configure the date columns
     protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
     for col in df.columns:
         if col not in protected_columns:
             gb.configure_column(
-                col, 
+                col,
+                cellDataType='dateString',
                 editable=True,
+                type=['rightAligned'],
             )
-    
+
     grid_options = gb.build()
 
     # Display the table using AgGrid
     result = AgGrid(
         df,
+        key=f"date_table_{st.session_state['dates_table_counter']}",
+        data_return_mode='AS_INPUT',
         gridOptions=grid_options,
         height=400,
         width='100%',
         enable_enterprise_modules=True,
-        allow_unsafe_jscode=True,
-        key=f"date_table_{st.session_state['dates_table_counter']}",
-    )
+        allow_unsafe_jscode=False,
+                autoSizeStrategy={
+            "type": "fitGridWidth",
+        },
+   )
 
     # Delete column with unique id added by AgGrid prior to comparison
     df.drop(columns="::auto_unique_id::", inplace=True)
@@ -124,7 +132,7 @@ def refresh_dates_table():
     """Force a refresh of the dates table by reloading the data and updating
     the session state.
     """
-    # Initialize table counter if not yet in session state
+    # Initialize the dates table counter if not yet in the session state
     if not 'dates_table_counter' in st.session_state:
         st.session_state['dates_table_counter'] = 0
         return
@@ -134,9 +142,8 @@ def refresh_dates_table():
     if key in st.session_state:
         del st.session_state[key]
 
-    # Update the session state
+    # Update the dates table counter
     st.session_state['dates_table_counter'] += 1
-    st.session_state['dates_have_changed'] = True
 
 
 @st.dialog("Add Date Column")
@@ -175,6 +182,7 @@ def dates_add_column():
 
         # Update the session state with the new DataFrame and refresh the table
         st.session_state['dates'] = df
+        st.session_state['dates_have_changed'] = True
         refresh_dates_table()
 
         st.success(f"Column '{new_column_name}' added successfully!")
@@ -238,10 +246,6 @@ def dates_delete_column():
 
 
 def dates_save_changes(df):
-    session = st.session_state['session']
-    project = st.session_state['project']
-    controller = MilestoneController(session)
-
     # Load the original data for comparison
     original_df = load_dates()
 
@@ -274,6 +278,7 @@ def dates_save_changes(df):
                         )
                         controller.add_date(new_date)
 
+    st.session_state['dates'] = df
     st.session_state['dates_have_changed'] = False
     st.success("Changes saved successfully!")
     st.rerun()
@@ -291,6 +296,7 @@ def dates_discard_changes():
 
     if confirm:
         load_dates(force=True)
+        st.session_state['dates_have_changed'] = False
         st.success("All changes discarded.")
         st.rerun()
     elif cancel:

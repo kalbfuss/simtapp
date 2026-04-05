@@ -2,3 +2,4 @@ streamlit
 streamlit-aggrid
 SQLAlchemy
 sqlalchemy-history
+plotly

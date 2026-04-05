@@ -70,3 +70,4 @@ This document outlines the best practices to be followed across all files in the
 - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
 - [Streamlit Documentation](https://docs.streamlit.io/)
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/en/20/)
+- [Plotly](https://plotly.com/python-api-reference/)

@@ -5,7 +5,10 @@ This module contains the code related to the trend tab.
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+
 from datetime import datetime
+
+from plog.pages.milestones.dates_tab import PROTECTED_COLUMNS, load_dates
 
 
 def get_colors(count):
@@ -124,16 +127,13 @@ def prepare_trend_data():
         and x/y coordinates for the trend line.
     :rtype: dict
     """
-    df = st.session_state.get('dates', pd.DataFrame())
+    df = load_dates()  # Load the milestone dates DataFrame from session state
 
     if df.empty:
         return {}
 
-    # Define protected columns that should not be used as entry dates
-    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
-
     # Extract entry dates from column names (x-axis values)
-    entry_dates = [col for col in df.columns if col not in protected_columns]
+    entry_dates = [col for col in df.columns if col not in PROTECTED_COLUMNS]
     entry_dates_sorted = sorted(entry_dates)
 
     # Convert entry dates from strings to datetime objects

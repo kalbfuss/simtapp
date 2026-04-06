@@ -3,18 +3,41 @@ This module contains the code related to the dates tab.
 """
 
 import pandas as pd
-from pandas.testing import assert_frame_equal
 import streamlit as st
-from datetime import date
+
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from plog.models.milestone import MilestoneDate
 from plog.controllers.milestone_controller import MilestoneController
 
 
+# Protected columns in the dates table
+PROTECTED_COLUMNS = ['Path', 'Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
+
 # Get the SQLAlchemy session from Streamlit session state
 session = st.session_state['session']
 project = st.session_state['project']
 controller = MilestoneController(session)
+
+
+def build_hierarchy_path(object, id_map):
+        """
+        Returns the full path from root to the object as a string.
+        
+        The path is a string of IDs separated by slashes, e.g. "1/2/3".
+        
+        :param object: SQLAlchemy model instance for which to get the path.
+        :type object: object
+        :param id_map: Dictionary mapping IDs to objects for parent traversal.
+        :type id_map: dict[int, object]
+        :returns: Path to the object.
+        :rtype: str
+        """
+        path = []
+        current = object
+        while current is not None:
+            path.append(str(current.id))
+            current = id_map.get(current.parent_id)
+        return '/'.join(reversed(path))
 
 
 def load_dates(force=False):
@@ -35,10 +58,15 @@ def load_dates(force=False):
     if not milestones:
         return pd.DataFrame()
 
+    # Dictionary mapping milestone IDs to milestone instances. The dictionary 
+    # is required for building the hierarchy path for each milestone.
+    id_map = {getattr(obj, 'id', None): obj for obj in milestones}
+
     # Prepare data for the table
     data = []
     for milestone in milestones:
         row = {
+            'Path': build_hierarchy_path(milestone, id_map),
             'Milestone': milestone.title,
             'ID': int(milestone.id),
             'Initial Baseline': milestone.initial_baseline_date,
@@ -51,16 +79,16 @@ def load_dates(force=False):
 
     # Create a data frame for the dates table
     df = pd.DataFrame(data)
+    print(df.to_string())
 
     # Identify date columns (excluding protected columns)
-    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
-    date_columns = [col for col in df.columns if col not in protected_columns]
+    date_columns = [col for col in df.columns if col not in PROTECTED_COLUMNS]
 
     # Sort date columns in ascending order
     date_columns_sorted = sorted(date_columns)
 
     # Reorder columns: protected columns first, then sorted date columns
-    column_order = protected_columns + date_columns_sorted
+    column_order = PROTECTED_COLUMNS + date_columns_sorted
     df = df[[col for col in column_order if col in df.columns]]
 
     # Save the sorted data frame in the session state
@@ -95,16 +123,28 @@ def dates_table():
         suppressMovable=True,
     )
     # Configure the date columns
-    protected_columns = ['Milestone', 'ID', 'Initial Baseline', 'Latest Baseline']
     for col in df.columns:
-        if col not in protected_columns:
+        if col not in PROTECTED_COLUMNS:
             gb.configure_column(
                 col,
                 cellDataType='dateString',
                 editable=True,
                 type=['rightAligned'],
             )
-
+    # Cofigure display of hierarchy based on 'Path' column
+    gb.configure_grid_options(
+        treeData=True,
+        getDataPath=JsCode("function(data) { return data.Path.split('/'); }"),
+        autoGroupColumnDef={
+            "headerName": "Milestone",
+            "field": "Milestone",
+            "cellRendererParams": {"suppressCount": True}
+        },
+        groupDefaultExpanded=-1,
+        animateRows=True
+    )
+    gb.configure_column("Path", hide=True)
+    gb.configure_column("Milestone", hide=True)
     grid_options = gb.build()
 
     # Display the table using AgGrid
@@ -116,7 +156,7 @@ def dates_table():
         height=400,
         width='100%',
         enable_enterprise_modules=True,
-        allow_unsafe_jscode=False,
+        allow_unsafe_jscode=True,
    )
 
     # Delete column with unique id added by AgGrid prior to comparison

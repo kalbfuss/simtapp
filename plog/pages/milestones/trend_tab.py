@@ -7,7 +7,6 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from datetime import datetime
-
 from plog.pages.milestones.dates_tab import PROTECTED_COLUMNS, load_dates
 
 

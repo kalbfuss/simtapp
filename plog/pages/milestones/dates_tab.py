@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from plog.common import build_hierarchy_path
 from plog.models.milestone import MilestoneDate
 from plog.controllers.milestone_controller import MilestoneController
 
@@ -17,27 +18,6 @@ PROTECTED_COLUMNS = ['Path', 'Milestone', 'ID', 'Initial Baseline', 'Latest Base
 session = st.session_state['session']
 project = st.session_state['project']
 controller = MilestoneController(session)
-
-
-def build_hierarchy_path(object, id_map):
-        """
-        Returns the full path from root to the object as a string.
-        
-        The path is a string of IDs separated by slashes, e.g. "1/2/3".
-        
-        :param object: SQLAlchemy model instance for which to get the path.
-        :type object: object
-        :param id_map: Dictionary mapping IDs to objects for parent traversal.
-        :type id_map: dict[int, object]
-        :returns: Path to the object.
-        :rtype: str
-        """
-        path = []
-        current = object
-        while current is not None:
-            path.append(str(current.id))
-            current = id_map.get(current.parent_id)
-        return '/'.join(reversed(path))
 
 
 def load_dates(force=False):

@@ -55,6 +55,27 @@ def shutdown():
 atexit.register(shutdown)
 
 
+def build_hierarchy_path(object, id_map):
+    """
+    Returns the full path from root to the object as a string.
+    
+    The path is a string of IDs separated by slashes, e.g. "1/2/3".
+    
+    :param object: SQLAlchemy model instance for which to get the path.
+    :type object: object
+    :param id_map: Dictionary mapping IDs to objects for parent traversal.
+    :type id_map: dict[int, object]
+    :returns: Path to the object.
+    :rtype: str
+    """
+    path = []
+    current = object
+    while current is not None:
+        path.append(str(current.id))
+        current = id_map.get(current.parent_id)
+    return '/'.join(reversed(path))
+
+
 def create_table(objects, columns, parent_column=None):
     """
     Display a table of SQLAlchemy model instances using st_aggrid.
@@ -66,26 +87,6 @@ def create_table(objects, columns, parent_column=None):
     :param parent_column: Optional column name for hierarchical display.
     :type parent_column: str
     """
-    
-    def get_hierarchy_path(object, id_map):
-        """
-        Returns the full path from root to the object as a string.
-        
-        The path is a string of IDs separated by slashes, e.g. "1/2/3".
-        
-        :param object: SQLAlchemy model instance for which to get the path.
-        :type object: object
-        :param id_map: Dictionary mapping IDs to objects for parent traversal.
-        :type id_map: dict[int, object]
-        :returns: Path to the object.
-        :rtype: str
-        """
-        path = []
-        current = object
-        while current is not None:
-            path.append(str(current.id))
-            current = id_map.get(current.parent_id)
-        return '/'.join(reversed(path))
 
     # Build a lookup for parent traversal and add 'path' column if needed
     rows = []
@@ -93,7 +94,7 @@ def create_table(objects, columns, parent_column=None):
         id_map = {getattr(obj, 'id', None): obj for obj in objects}
         for obj in objects:
             row = {col: getattr(obj, col, None) for col in columns.keys()}
-            row['path'] = get_hierarchy_path(obj, id_map)
+            row['path'] = build_hierarchy_path(obj, id_map)
             rows.append(row)
         df = pd.DataFrame(rows)
     else:
